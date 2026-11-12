@@ -2,6 +2,7 @@
 
 import io
 import unittest
+import zipfile
 import openpyxl
 
 from curriculum import DAYS_OF_WEEK, CurriculumStore
@@ -48,6 +49,8 @@ class TestCurriculumAndExporter(unittest.TestCase):
         self.assertEqual(ws["B5"].value, "TYT Matematik")
         self.assertEqual(ws["B13"].value, "TYT Matematik")  # 9. satır (5+8=13)
         self.assertEqual(ws["F5"].value, 25)
+        with zipfile.ZipFile(io.BytesIO(raw)) as zf:
+            self.assertIn("xl/media/image1.png", zf.namelist())
 
     def test_compact_four_weeks_export(self) -> None:
         w1 = {day: [] for day in DAYS_OF_WEEK}

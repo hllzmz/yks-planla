@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 from urllib.parse import quote
@@ -9,6 +10,7 @@ from urllib.parse import quote
 import uvicorn
 from fastapi import FastAPI, Query
 from fastapi.responses import HTMLResponse, Response
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from curriculum import DAYS_OF_WEEK, STUDY_TYPES, CurriculumStore
@@ -24,6 +26,7 @@ WEB_DIR = BASE_DIR / "web"
 STORE = CurriculumStore()
 
 app = FastAPI(title="YKS Program Planlayıcı")
+app.mount("/data", StaticFiles(directory=BASE_DIR / "data"), name="data")
 
 
 # ------------------------------------------------------------------ #
@@ -181,4 +184,5 @@ def export_excel(payload: ExportPayload) -> Response:
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8080, log_level="info")
+    port = int(os.environ.get("PORT", 8080))
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")

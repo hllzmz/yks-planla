@@ -705,18 +705,73 @@
     };
 
     // ------------------------------------------------------------------ //
-    // Sağ Panel: Müfredat API Yükleme
+    // Sağ Panel: Müfredat JSON Yükleme (GitHub Pages + Yerel Ortak)
     // ------------------------------------------------------------------ //
+    const curriculumCache = {};
+
+    function trLower(text) {
+      return String(text ?? "")
+        .replace(/İ/g, "i")
+        .replace(/I/g, "ı")
+        .replace(/Ş/g, "ş")
+        .replace(/Ğ/g, "ğ")
+        .replace(/Ü/g, "ü")
+        .replace(/Ö/g, "ö")
+        .replace(/Ç/g, "ç")
+        .toLowerCase();
+    }
+
+    async function getYearTopics(year) {
+      if (!curriculumCache[year]) {
+        const res = await fetch(`./data/mufredat_${year}.json`);
+        if (!res.ok) throw new Error("Müfredat JSON yüklenemedi");
+        const json = await res.json();
+        curriculumCache[year] = json.topics.map(t => ({
+          ...t,
+          full_ders: `${t.session} ${t.ders}`,
+        }));
+      }
+      return curriculumCache[year];
+    }
+
+    async function getFilteredTopics({ year, session, puan_turu, ders, q }) {
+      let results = await getYearTopics(year);
+      if (session && session !== "Tümü") {
+        results = results.filter(t => t.session === session);
+      }
+      if (puan_turu && puan_turu !== "Tümü") {
+        results = results.filter(t =>
+          t.session === "TYT" || (t.puan_turu && t.puan_turu.includes(puan_turu))
+        );
+      }
+      if (ders && ders !== "Tümü") {
+        results = results.filter(t => t.ders === ders);
+      }
+      const query = trLower(String(q || "").trim());
+      if (query) {
+        results = results.filter(t =>
+          trLower(t.konu).includes(query) ||
+          trLower(t.unite).includes(query) ||
+          trLower(t.ders).includes(query) ||
+          trLower(t.kazanim).includes(query)
+        );
+      }
+      return results;
+    }
+
     async function refreshSubjectsDropdown() {
-      const params = new URLSearchParams({
+      const topics = await getFilteredTopics({
         year: filterState.year,
         session: filterState.session,
         puan_turu: filterState.puan_turu,
+        ders: "Tümü",
+        q: "",
       });
-      const res = await fetch(`./api/subjects?${params}`);
-      const data = await res.json();
+      const names = [];
+      for (const t of topics) {
+        if (!names.includes(t.ders)) names.push(t.ders);
+      }
       const sel = document.getElementById("filterDers");
-      const names = data.subjects.map(s => s.ders);
       if (filterState.ders !== "Tümü" && !names.includes(filterState.ders)) {
         filterState.ders = "Tümü";
       }
@@ -727,77 +782,82 @@
     async function refreshCurriculum() {
       const listEl = document.getElementById("curriculumList");
       if (filterState.ders === "Tümü" && !filterState.q.trim()) {
-        const params = new URLSearchParams({
+        const topics = await getFilteredTopics({
           year: filterState.year,
           session: filterState.session,
           puan_turu: filterState.puan_turu,
+          ders: "Tümü",
+          q: "",
         });
-        const res = await fetch(`./api/subjects?${params}`);
-        const data = await res.json();
-        if (!data.subjects.length) {
+        const counts = new Map();
+        for (const t of topics) {
+          counts.set(t.ders, (counts.get(t.ders) || 0) + 1);
+        }
+        if (!counts.size) {
           listEl.innerHTML = '<div style="text-align:center; padding:30px; color:#94a3b8">Uygun ders bulunamadı.</div>';
           return;
         }
+        const cards = Array.from(counts.entries()).map(([ders, count]) => `
+          <div class="subject-card" onclick="pickSubject('${escapeHtml(ders).replace(/'/g, "\\'")}')">
+            <div>
+              <div style="font-weight:700; font-size:13.5px">${escapeHtml(ders)}</div>
+              <div style="font-size:12px; color:var(--muted)">${count} konu</div>
+            </div>
+            <span style="color:var(--primary); font-weight:700">›</span>
+          </div>
+        `).join("");
         listEl.innerHTML = `
           <div style="font-size:12px; color:var(--muted); margin-bottom:8px">
             Konuları görmek için bir ders seçin veya yukarıdan arama yapın:
           </div>
-          <div class="subject-grid">
-            ${data.subjects.map(s => `
-              <div class="subject-card" onclick="pickSubject('${escapeHtml(s.ders).replace(/'/g, "\\'")}')">
-                <div>
-                  <div style="font-weight:700; font-size:13.5px">${escapeHtml(s.ders)}</div>
-                  <div style="font-size:12px; color:var(--muted)">${s.count} konu</div>
-                </div>
-                <span style="color:var(--primary); font-weight:700">›</span>
-              </div>
-            `).join("")}
-          </div>
+          <div class="subject-grid">${cards}</div>
         `;
         return;
       }
 
-      const params = new URLSearchParams({
-        year: filterState.year,
-        session: filterState.session,
-        puan_turu: filterState.puan_turu,
-        ders: filterState.ders,
-        q: filterState.q,
-      });
-      const res = await fetch(`./api/curriculum?${params}`);
-      const data = await res.json();
-
-      if (!data.total) {
+      const topics = await getFilteredTopics(filterState);
+      if (!topics.length) {
         listEl.innerHTML = '<div style="text-align:center; padding:30px; color:#94a3b8">Aramaya uygun konu bulunamadı.</div>';
         return;
+      }
+
+      // Subject -> Unit -> Topics gruplaması
+      const sectionsMap = new Map();
+      for (const t of topics) {
+        const subjKey = `${t.session} · ${t.ders}`;
+        if (!sectionsMap.has(subjKey)) sectionsMap.set(subjKey, new Map());
+        const unitMap = sectionsMap.get(subjKey);
+        if (!unitMap.has(t.unite)) unitMap.set(t.unite, []);
+        unitMap.get(t.unite).push(t);
       }
 
       const autoOpen = Boolean(filterState.q.trim()) || filterState.ders !== "Tümü";
       const headerHtml = `
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px">
-          <span style="font-size:12px; color:var(--muted)">${data.total} konu listeleniyor</span>
+          <span style="font-size:12px; color:var(--muted)">${topics.length} konu listeleniyor</span>
           ${filterState.ders !== "Tümü" ? `<button class="btn btn-ghost btn-xs" onclick="pickSubject('Tümü')">← Tüm Dersler</button>` : ""}
         </div>
       `;
 
-      const sectionsHtml = data.sections.map(sec => {
-        const subjTotal = sec.units.reduce((a, u) => a + u.topics.length, 0);
-        const unitsHtml = sec.units.map(u => {
-          const encodedTopics = encodeURIComponent(JSON.stringify(u.topics));
-          const isOpen = autoOpen && sec.units.length <= 6 ? "open" : "";
+      const sectionsHtml = Array.from(sectionsMap.entries()).map(([subjectKey, unitMap]) => {
+        const units = Array.from(unitMap.entries());
+        const subjTotal = units.reduce((a, [, ut]) => a + ut.length, 0);
+        const unitsHtml = units.map(([uniteName, unitTopics]) => {
+          const encodedTopics = encodeURIComponent(JSON.stringify(unitTopics));
+          const isOpen = autoOpen && units.length <= 6 ? "open" : "";
           return `
             <details class="unit-details" ${isOpen}>
               <summary>
-                <span>${escapeHtml(u.unite)}</span>
-                <span style="font-size:11px; color:var(--muted)">${u.topics.length} konu</span>
+                <span>${escapeHtml(uniteName)}</span>
+                <span style="font-size:11px; color:var(--muted)">${unitTopics.length} konu</span>
               </summary>
               <div class="unit-subbar">
-                <span>${u.topics.length} alt başlık</span>
+                <span>${unitTopics.length} alt başlık</span>
                 <button class="btn btn-ghost btn-xs" style="color:var(--primary)"
-                  onclick="addUnitTopics('${encodedTopics}', '${escapeHtml(u.unite).replace(/'/g, "\\'")}')">+ Üniteyi Ekle</button>
+                  onclick="addUnitTopics('${encodedTopics}', '${escapeHtml(uniteName).replace(/'/g, "\\'")}')">+ Üniteyi Ekle</button>
               </div>
               <div>
-                ${u.topics.map(t => {
+                ${unitTopics.map(t => {
                   const meta = [t.sinif, t.session !== "TYT" ? t.puan_turu : "", t.agirlik].filter(Boolean).join(" · ");
                   const encTopic = encodeURIComponent(JSON.stringify(t));
                   return `
@@ -822,7 +882,7 @@
         return `
           <div class="unit-box">
             <div class="subject-header">
-              <span>${escapeHtml(sec.subject)}</span>
+              <span>${escapeHtml(subjectKey)}</span>
               <span>${subjTotal} konu</span>
             </div>
             ${unitsHtml}
@@ -990,41 +1050,165 @@
     };
 
     // ------------------------------------------------------------------ //
-    // Excel Export (POST -> Blob Download)
+    // Excel Export (Yerel FastAPI -> GitHub Pages Pyodide Fallback)
     // ------------------------------------------------------------------ //
+    let pyodideReadyPromise = null;
+
+    function loadScriptOnce(src) {
+      return new Promise((resolve, reject) => {
+        if (document.querySelector(`script[src="${src}"]`)) return resolve();
+        const s = document.createElement("script");
+        s.src = src;
+        s.onload = resolve;
+        s.onerror = () => reject(new Error("Pyodide betiği yüklenemedi"));
+        document.head.appendChild(s);
+      });
+    }
+
+    async function getPyodideEngine(btn) {
+      if (!pyodideReadyPromise) {
+        pyodideReadyPromise = (async () => {
+          btn.textContent = "Python motoru yükleniyor (~5 sn)...";
+          await loadScriptOnce("https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js");
+          const pyodide = await window.loadPyodide();
+          btn.textContent = "Excel kütüphanesi kuruluyor...";
+          await pyodide.loadPackage(["micropip", "pillow"]);
+          await pyodide.runPythonAsync(`
+            import micropip
+            await micropip.install("openpyxl")
+          `);
+
+          // Python modüllerini ve şablon Excel dosyalarını Pyodide sanal dosya sistemine yaz
+          pyodide.FS.mkdirTree("/app/templates");
+          pyodide.FS.mkdirTree("/app/data");
+          const [currCode, expCode, tpl1Buf, tpl2Buf] = await Promise.all([
+            fetch("./curriculum.py").then(r => r.text()),
+            fetch("./excel_exporter.py").then(r => r.text()),
+            fetch("./templates/haftalik_bos.xlsx").then(r => r.arrayBuffer()),
+            fetch("./templates/kompakt_sablon.xlsx").then(r => r.arrayBuffer()),
+          ]);
+          pyodide.FS.writeFile("/app/curriculum.py", currCode);
+          pyodide.FS.writeFile("/app/excel_exporter.py", expCode);
+          pyodide.FS.writeFile("/app/templates/haftalik_bos.xlsx", new Uint8Array(tpl1Buf));
+          pyodide.FS.writeFile("/app/templates/kompakt_sablon.xlsx", new Uint8Array(tpl2Buf));
+
+          await pyodide.runPythonAsync(`
+            import sys
+            if "/app" not in sys.path:
+                sys.path.insert(0, "/app")
+            import json
+            from excel_exporter import ScheduleTask, export_single_week_excel, export_compact_four_weeks_excel
+
+            def run_export_from_json(payload_json: str) -> bytes:
+                payload = json.loads(payload_json)
+                weeks_conv = []
+                for w in payload.get("weeks", []):
+                    w_dict = {}
+                    for day, items in w.items():
+                        w_dict[day] = [
+                            ScheduleTask(
+                                ders=item.get("ders", ""),
+                                konu=item.get("konu", ""),
+                                study_type=item.get("study_type", "Soru Çözümü"),
+                                target_questions=item.get("target_questions"),
+                                note=item.get("note", ""),
+                            )
+                            for item in items
+                        ]
+                    weeks_conv.append(w_dict)
+
+                labels = payload.get("week_labels", ["1. Hafta", "2. Hafta", "3. Hafta", "4. Hafta"])
+                if payload.get("template_mode") == "single":
+                    return export_single_week_excel(
+                        week_plan=weeks_conv[0] if weeks_conv else {},
+                        student_name=payload.get("student_name", ""),
+                        week_title=labels[0] if labels else "",
+                    )
+                return export_compact_four_weeks_excel(
+                    weeks=weeks_conv,
+                    student_name=payload.get("student_name", ""),
+                    week_labels=labels,
+                )
+          `);
+          return pyodide;
+        })().catch(err => {
+          pyodideReadyPromise = null;
+          throw err;
+        });
+      }
+      return pyodideReadyPromise;
+    }
+
+    function safeFilePart(name, fallback) {
+      const cleaned = String(name || "").replace(/[^a-zA-Z0-9çğıöşüÇĞİÖŞÜ _-]/g, "").trim().replace(/\s+/g, "_");
+      return cleaned || fallback;
+    }
+
+    function triggerBlobDownload(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
     async function exportExcel() {
       const btn = document.getElementById("btnExport");
       btn.disabled = true;
       btn.textContent = "Hazırlanıyor...";
-      try {
-        const res = await fetch("./api/export", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            student_name: state.student_name,
-            template_mode: state.template_mode,
-            week_labels: state.week_labels,
-            weeks: state.weeks,
-          }),
-        });
-        if (!res.ok) throw new Error("Export hatası");
-        const blob = await res.blob();
-        let filename = state.template_mode === "single" ? "Haftalik_Program.xlsx" : "4_Haftalik_Kompakt_Program.xlsx";
-        const cd = res.headers.get("Content-Disposition") || "";
-        const m = cd.match(/filename\*=UTF-8''([^;]+)/i);
-        if (m) filename = decodeURIComponent(m[1]);
 
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-        notify(`Excel indirildi: ${filename}`);
+      const payload = {
+        student_name: state.student_name,
+        template_mode: state.template_mode,
+        week_labels: state.week_labels,
+        weeks: state.weeks,
+      };
+      const baseName = safeFilePart(state.student_name, "Ogrenci");
+      const defaultFilename = state.template_mode === "single"
+        ? `${baseName}_${safeFilePart(state.week_labels[0], "1_Hafta")}_Program.xlsx`
+        : `${baseName}_4_Haftalik_Kompakt_Program.xlsx`;
+
+      try {
+        // 1) Yerel FastAPI sunucusu varsa doğrudan ondan hızlı export al
+        let usedApi = false;
+        try {
+          const res = await fetch("./api/export", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (res.ok) {
+            const blob = await res.blob();
+            let filename = defaultFilename;
+            const cd = res.headers.get("Content-Disposition") || "";
+            const m = cd.match(/filename\*=UTF-8''([^;]+)/i);
+            if (m) filename = decodeURIComponent(m[1]);
+            triggerBlobDownload(blob, filename);
+            notify(`Excel indirildi: ${filename}`);
+            usedApi = true;
+          }
+        } catch (_) {}
+
+        // 2) GitHub Pages gibi statik ortamda Pyodide (tarayıcı içi Python) kullan
+        if (!usedApi) {
+          const pyodide = await getPyodideEngine(btn);
+          btn.textContent = "Excel oluşturuluyor...";
+          pyodide.globals.set("payload_json_js", JSON.stringify(payload));
+          const pyBytes = pyodide.runPython("run_export_from_json(payload_json_js)");
+          const uint8 = pyBytes.toJs({ create_proxies: false });
+          pyBytes.destroy();
+          const blob = new Blob([uint8], {
+            type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          });
+          triggerBlobDownload(blob, defaultFilename);
+          notify(`Excel indirildi: ${defaultFilename}`);
+        }
       } catch (err) {
-        alert("Excel oluşturulurken hata oluştu.");
+        console.error(err);
+        alert("Excel oluşturulurken hata oluştu: " + (err?.message || err));
       } finally {
         btn.disabled = false;
         btn.textContent = "⬇ Excel Olarak İndir";
