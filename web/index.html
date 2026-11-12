@@ -1,0 +1,1110 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>YKS Program Planlayıcı</title>
+  <style>
+    :root {
+      --bg: #f1f5f9;
+      --surface: #ffffff;
+      --surface-alt: #f8fafc;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --muted: #64748b;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --primary-soft: #eff6ff;
+      --success: #16a34a;
+      --success-hover: #15803d;
+      --danger: #dc2626;
+      --radius: 10px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+
+    /* Üst Bar */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+    }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand-icon {
+      width: 36px; height: 36px; border-radius: 8px;
+      background: var(--primary-soft); color: var(--primary);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 700;
+    }
+    .brand-title { font-weight: 700; font-size: 15px; }
+    .brand-sub { font-size: 11px; color: var(--muted); }
+    .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+    /* Form & Butonlar */
+    .input, .select {
+      border: 1px solid #cbd5e1;
+      border-radius: 7px;
+      padding: 6px 10px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 13px;
+      outline: none;
+    }
+    .input:focus, .select:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.14);
+    }
+    .btn {
+      border: 1px solid transparent;
+      border-radius: 7px;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.12s ease;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-success:hover { background: var(--success-hover); }
+    .btn-outline { background: #fff; color: var(--primary); border-color: #bfdbfe; }
+    .btn-outline:hover { background: var(--primary-soft); }
+    .btn-ghost { background: transparent; color: var(--muted); }
+    .btn-ghost:hover { background: #f1f5f9; color: var(--text); }
+    .btn-danger-ghost { background: transparent; color: var(--danger); }
+    .btn-danger-ghost:hover { background: #fef2f2; }
+    .btn-sm { padding: 4px 8px; font-size: 12px; }
+    .btn-xs { padding: 2px 6px; font-size: 11px; border-radius: 5px; }
+
+    .segmented {
+      display: inline-flex;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--surface-alt);
+    }
+    .segmented button {
+      border: none;
+      background: transparent;
+      padding: 6px 11px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+    }
+    .segmented button.active {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    /* İki Sütunlu Ana Alan */
+    .layout {
+      max-width: 1560px;
+      margin: 0 auto;
+      padding: 14px 16px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(360px, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+    @media (max-width: 1024px) {
+      .layout { grid-template-columns: 1fr; }
+      .right-panel { position: static !important; }
+    }
+
+    /* Sol Panel: Program */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    }
+    .week-tabs {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding: 10px 12px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: var(--radius);
+      margin-bottom: 10px;
+    }
+    .summary-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding: 10px 12px;
+      margin-bottom: 10px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-primary { background: var(--primary); color: #fff; }
+    .badge-soft { background: #e2e8f0; color: #334155; }
+
+    .day-card {
+      margin-bottom: 10px;
+      overflow: hidden;
+      border-left-width: 4px;
+      border-left-style: solid;
+    }
+    .day-card.active {
+      outline: 2px solid var(--primary);
+      outline-offset: -1px;
+    }
+    .day-PAZARTESİ { border-left-color: #3b82f6; }
+    .day-SALI { border-left-color: #6366f1; }
+    .day-ÇARŞAMBA { border-left-color: #8b5cf6; }
+    .day-PERŞEMBE { border-left-color: #14b8a6; }
+    .day-CUMA { border-left-color: #10b981; }
+    .day-CUMARTESİ { border-left-color: #f59e0b; }
+    .day-PAZAR { border-left-color: #f43f5e; }
+
+    .day-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: var(--surface-alt);
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      user-select: none;
+    }
+    .day-card.active .day-header { background: #dbeafe; }
+    .day-title { font-weight: 700; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+    .day-meta { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+
+    .task-list { divide-y: 1px solid #f1f5f9; }
+    .task-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 7px 12px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .task-row:last-child { border-bottom: none; }
+    .task-row:hover { background: #f8fafc; }
+    .task-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+    .task-topic-input {
+      width: 100%;
+      border: 1px solid transparent;
+      border-radius: 5px;
+      padding: 2px 5px;
+      font-size: 13px;
+      font-weight: 500;
+      background: transparent;
+      color: var(--text);
+    }
+    .task-topic-input:hover, .task-topic-input:focus {
+      border-color: #cbd5e1;
+      background: #fff;
+      outline: none;
+    }
+    .task-controls { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+    .q-input { width: 64px; text-align: center; padding: 4px 6px; font-size: 12px; }
+    .type-select { padding: 4px 6px; font-size: 12px; }
+    .empty-day { padding: 10px 12px; font-size: 12px; color: #94a3b8; font-style: italic; }
+
+    /* Sağ Panel: Müfredat */
+    .right-panel {
+      position: sticky;
+      top: 70px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .filter-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .quick-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      flex-wrap: wrap;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 7px 10px;
+    }
+    .curriculum-scroll {
+      max-height: calc(100vh - 305px);
+      min-height: 360px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+    .subject-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    @media (max-width: 560px) { .subject-grid { grid-template-columns: 1fr; } }
+    .subject-card {
+      padding: 11px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .subject-card:hover { border-color: var(--primary); background: var(--primary-soft); }
+
+    .unit-box {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      overflow: hidden;
+    }
+    .subject-header {
+      background: #f1f5f9;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #334155;
+      display: flex;
+      justify-content: space-between;
+    }
+    details.unit-details { border-top: 1px solid #f1f5f9; }
+    details.unit-details summary {
+      padding: 8px 10px;
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      background: #fff;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    details.unit-details summary::-webkit-details-marker { display: none; }
+    details.unit-details summary:hover { background: #f8fafc; }
+    .unit-subbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px 10px;
+      background: #f8fafc;
+      border-top: 1px solid #f1f5f9;
+      border-bottom: 1px solid #f1f5f9;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .topic-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 7px 10px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .topic-row:last-child { border-bottom: none; }
+    .topic-row:hover { background: #eff6ff55; }
+    .topic-title { font-size: 12.5px; font-weight: 500; color: var(--text); }
+    .topic-meta { font-size: 10.5px; color: #94a3b8; }
+
+    /* Modal & Toast */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45);
+      display: none; align-items: center; justify-content: center;
+      z-index: 60; padding: 16px;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      background: #fff; border-radius: 12px; width: 480px; max-width: 100%;
+      padding: 18px 20px; box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2);
+    }
+    .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+    .field { margin-bottom: 10px; }
+    .field label { display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px; }
+    .toast {
+      position: fixed; bottom: 18px; right: 18px; z-index: 80;
+      background: #0f172a; color: #fff; padding: 9px 14px; border-radius: 8px;
+      font-size: 13px; font-weight: 500; box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+      opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <!-- Üst Araç Çubuğu -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-icon">📅</div>
+      <div>
+        <div class="brand-title">YKS Program Planlayıcı</div>
+        <div class="brand-sub">2027 &amp; 2028 Müfredat · Orijinal Excel Şablon Aktarımı</div>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <input id="studentName" class="input" style="width: 195px" placeholder="Öğrenci Adı Soyadı..." />
+
+      <div class="segmented" id="modeToggle">
+        <button data-mode="single" class="active">Tek Haftalık Şablon</button>
+        <button data-mode="compact">4 Haftalık Kompakt</button>
+      </div>
+
+      <button class="btn btn-outline" id="btnRoutine">↻ Rutin Dağıt</button>
+      <button class="btn btn-danger-ghost" id="btnClear">Temizle</button>
+      <button class="btn btn-success" id="btnExport">⬇ Excel Olarak İndir</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- SOL PANEL: HAFTALIK PROGRAM -->
+    <section>
+      <div id="weekTabs" class="week-tabs" style="display:none"></div>
+
+      <div class="card summary-bar">
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap">
+          <label style="font-size:12px; color:#64748b; font-weight:600">Hafta Başlığı:</label>
+          <input id="weekLabelInput" class="input" style="width:185px" placeholder="Örn: 16 Şubat Haftası" />
+        </div>
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap">
+          <span class="badge badge-primary" id="activeDayBadge">Aktif Gün: PAZARTESİ</span>
+          <span id="weekTotalLabel" style="font-size:13px; font-weight:700; color:#334155">0 görev · 0 soru</span>
+        </div>
+      </div>
+
+      <div id="daysContainer"></div>
+    </section>
+
+    <!-- SAĞ PANEL: 2027 & 2028 YKS MÜFREDATI -->
+    <aside class="card right-panel">
+      <div style="display:flex; align-items:center; justify-content:space-between">
+        <strong style="font-size:15px">YKS Konu Havuzu</strong>
+        <span id="targetDayHint" style="font-size:12px; font-weight:700; color:var(--primary)">Eklenecek Gün: PAZARTESİ</span>
+      </div>
+
+      <div class="segmented" id="yearToggle" style="width:100%">
+        <button data-year="2027" class="active" style="flex:1">2027 YKS (MEB 2018)</button>
+        <button data-year="2028" style="flex:1">2028 YKS (Maarif Modeli)</button>
+      </div>
+
+      <div class="filter-row">
+        <select id="filterSession" class="select" style="width:92px">
+          <option value="Tümü">Tümü</option>
+          <option value="TYT" selected>TYT</option>
+          <option value="AYT">AYT</option>
+          <option value="YDT">YDT</option>
+        </select>
+        <select id="filterPuan" class="select" style="width:92px">
+          <option value="Tümü">Tüm Alan</option>
+          <option value="SAY">SAY</option>
+          <option value="EA">EA</option>
+          <option value="SÖZ">SÖZ</option>
+          <option value="DİL">DİL</option>
+        </select>
+        <select id="filterDers" class="select" style="flex:1; min-width:140px">
+          <option value="Tümü">Tüm Dersler</option>
+        </select>
+      </div>
+
+      <input id="searchInput" class="input" placeholder="Konu, ünite veya kazanım ara (örn: trigonometri, paragraf)..." />
+
+      <div class="quick-bar">
+        <span style="font-size:12px; font-weight:600; color:#475569">Hızlı Ekle:</span>
+        <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap">
+          <select id="defaultType" class="select type-select">
+            <option value="Konu">Konu</option>
+            <option value="Soru Çözümü" selected>Soru Çözümü</option>
+            <option value="Tekrar">Tekrar</option>
+            <option value="Deneme">Deneme</option>
+          </select>
+          <input id="defaultQuestions" type="number" min="0" step="5" value="30" class="input q-input" />
+          <button class="btn btn-outline btn-xs q-preset" data-q="0">Konu</button>
+          <button class="btn btn-outline btn-xs q-preset" data-q="20">20</button>
+          <button class="btn btn-outline btn-xs q-preset" data-q="30">30</button>
+          <button class="btn btn-outline btn-xs q-preset" data-q="40">40</button>
+          <button class="btn btn-outline btn-xs q-preset" data-q="50">50</button>
+        </div>
+      </div>
+
+      <div id="curriculumList" class="curriculum-scroll"></div>
+    </aside>
+  </main>
+
+  <!-- MODALLAR -->
+  <div id="modalBackdrop" class="modal-backdrop">
+    <div class="modal" id="modalContent"></div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const DAYS = ["PAZARTESİ", "SALI", "ÇARŞAMBA", "PERŞEMBE", "CUMA", "CUMARTESİ", "PAZAR"];
+    const STUDY_TYPES = ["Konu", "Soru Çözümü", "Tekrar", "Deneme"];
+    const STORAGE_KEY = "yks_planla_state_v1";
+
+    function emptyWeek() {
+      const w = {};
+      for (const d of DAYS) w[d] = [];
+      return w;
+    }
+
+    function loadSavedState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && Array.isArray(parsed.weeks) && parsed.weeks.length === 4) {
+            return parsed;
+          }
+        }
+      } catch (e) {}
+      return {
+        student_name: "",
+        template_mode: "single",
+        active_week_idx: 0,
+        week_labels: ["1. Hafta", "2. Hafta", "3. Hafta", "4. Hafta"],
+        weeks: [emptyWeek(), emptyWeek(), emptyWeek(), emptyWeek()],
+        active_day: "PAZARTESİ",
+      };
+    }
+
+    const state = loadSavedState();
+    const filterState = {
+      year: 2027,
+      session: "TYT",
+      puan_turu: "Tümü",
+      ders: "Tümü",
+      q: "",
+    };
+
+    function saveState() {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+    }
+
+    function currentWeekIdx() {
+      return state.template_mode === "single" ? 0 : state.active_week_idx;
+    }
+    function currentWeek() {
+      return state.weeks[currentWeekIdx()];
+    }
+
+    let toastTimer = null;
+    function notify(msg) {
+      const el = document.getElementById("toast");
+      el.textContent = msg;
+      el.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove("show"), 2000);
+    }
+
+    function escapeHtml(s) {
+      return String(s ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    // ------------------------------------------------------------------ //
+    // Sol Panel Çizimi
+    // ------------------------------------------------------------------ //
+    function renderSchedule() {
+      saveState();
+      const idx = currentWeekIdx();
+      const week = currentWeek();
+
+      document.getElementById("studentName").value = state.student_name || "";
+      document.getElementById("weekLabelInput").value = state.week_labels[idx] || `${idx + 1}. Hafta`;
+      document.getElementById("activeDayBadge").textContent = `Aktif Gün: ${state.active_day}`;
+      document.getElementById("targetDayHint").textContent = `Eklenecek Gün: ${state.active_day}`;
+
+      document.querySelectorAll("#modeToggle button").forEach(b => {
+        b.classList.toggle("active", b.dataset.mode === state.template_mode);
+      });
+
+      // 4 Haftalık Sekmeler
+      const weekTabs = document.getElementById("weekTabs");
+      if (state.template_mode === "compact") {
+        weekTabs.style.display = "flex";
+        let html = '<div style="display:flex; gap:6px; flex-wrap:wrap">';
+        for (let i = 0; i < 4; i++) {
+          const cnt = DAYS.reduce((acc, d) => acc + (state.weeks[i][d]?.length || 0), 0);
+          const cls = i === state.active_week_idx ? "btn btn-primary btn-sm" : "btn btn-outline btn-sm";
+          html += `<button class="${cls}" onclick="selectWeek(${i})">${i + 1}. Hafta (${cnt})</button>`;
+        }
+        html += "</div>";
+        if (state.active_week_idx < 3) {
+          html += `<button class="btn btn-outline btn-sm" onclick="copyToNextWeek()">📋 ${state.active_week_idx + 2}. Haftaya Kopyala</button>`;
+        }
+        weekTabs.innerHTML = html;
+      } else {
+        weekTabs.style.display = "none";
+      }
+
+      // Toplam Sayaç
+      let totalTasks = 0;
+      let totalQ = 0;
+      for (const d of DAYS) {
+        for (const t of week[d]) {
+          totalTasks++;
+          totalQ += Number(t.target_questions || 0);
+        }
+      }
+      document.getElementById("weekTotalLabel").textContent = `Toplam: ${totalTasks} görev · ${totalQ} soru`;
+
+      // Gün Kartları
+      const container = document.getElementById("daysContainer");
+      container.innerHTML = DAYS.map(day => {
+        const tasks = week[day] || [];
+        const isActive = state.active_day === day;
+        const dayQ = tasks.reduce((a, t) => a + Number(t.target_questions || 0), 0);
+
+        const rowsHtml = tasks.length === 0
+          ? `<div class="empty-day">${isActive ? "Henüz konu eklenmedi. Sağ panelden '+ Ekle'ye tıklayın." : "Boş gün — eklemek için gün başlığına tıklayıp aktif yapın."}</div>`
+          : `<div class="task-list">${tasks.map((t, i) => `
+              <div class="task-row">
+                <div class="task-main">
+                  <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap">
+                    <span class="badge badge-soft">${escapeHtml(t.ders)}</span>
+                    ${t.note ? `<span style="font-size:11px; color:#64748b">(${escapeHtml(t.note)})</span>` : ""}
+                  </div>
+                  <input class="task-topic-input" value="${escapeHtml(t.konu)}"
+                    onchange="updateTask('${day}', ${i}, 'konu', this.value)" />
+                </div>
+                <div class="task-controls">
+                  <select class="select type-select" onchange="updateTask('${day}', ${i}, 'study_type', this.value)">
+                    ${STUDY_TYPES.map(st => `<option value="${st}" ${t.study_type === st ? "selected" : ""}>${st}</option>`).join("")}
+                  </select>
+                  <input type="number" min="0" step="5" class="input q-input"
+                    value="${t.target_questions ?? 0}"
+                    onchange="updateTask('${day}', ${i}, 'target_questions', this.value)" />
+                  <button class="btn btn-ghost btn-xs" title="Yukarı taşı" ${i === 0 ? "disabled" : ""} onclick="moveTask('${day}', ${i}, -1)">↑</button>
+                  <button class="btn btn-ghost btn-xs" title="Aşağı taşı" ${i === tasks.length - 1 ? "disabled" : ""} onclick="moveTask('${day}', ${i}, 1)">↓</button>
+                  <button class="btn btn-ghost btn-xs" title="Başka güne kopyala" onclick="openCopyModal('${day}', ${i})">📋</button>
+                  <button class="btn btn-danger-ghost btn-xs" title="Sil" onclick="deleteTask('${day}', ${i})">✕</button>
+                </div>
+              </div>
+            `).join("")}</div>`;
+
+        return `
+          <div class="card day-card day-${day} ${isActive ? "active" : ""}">
+            <div class="day-header" onclick="setActiveDay('${day}')">
+              <div class="day-title">
+                ${isActive ? "📌 " : ""}${day}
+                ${isActive ? '<span class="badge badge-primary">AKTİF GÜN</span>' : ""}
+              </div>
+              <div class="day-meta">
+                <span>${tasks.length} görev · ${dayQ} soru</span>
+                <button class="btn btn-outline btn-xs" onclick="event.stopPropagation(); openCustomModal('${day}')">+ Özel</button>
+              </div>
+            </div>
+            ${rowsHtml}
+          </div>
+        `;
+      }).join("");
+    }
+
+    // ------------------------------------------------------------------ //
+    // Program İşlemleri
+    // ------------------------------------------------------------------ //
+    window.setActiveDay = (day) => { state.active_day = day; renderSchedule(); };
+    window.selectWeek = (idx) => { state.active_week_idx = idx; renderSchedule(); };
+
+    window.copyToNextWeek = () => {
+      const i = state.active_week_idx;
+      if (i >= 3) return;
+      state.weeks[i + 1] = JSON.parse(JSON.stringify(state.weeks[i]));
+      notify(`${i + 1}. Hafta → ${i + 2}. Haftaya kopyalandı`);
+      renderSchedule();
+    };
+
+    window.updateTask = (day, idx, field, val) => {
+      const t = currentWeek()[day][idx];
+      if (!t) return;
+      if (field === "target_questions") {
+        const num = parseInt(val, 10);
+        t.target_questions = num > 0 ? num : null;
+      } else {
+        t[field] = val;
+      }
+      renderSchedule();
+    };
+
+    window.moveTask = (day, idx, delta) => {
+      const list = currentWeek()[day];
+      const next = idx + delta;
+      if (next < 0 || next >= list.length) return;
+      [list[idx], list[next]] = [list[next], list[idx]];
+      renderSchedule();
+    };
+
+    window.deleteTask = (day, idx) => {
+      currentWeek()[day].splice(idx, 1);
+      renderSchedule();
+    };
+
+    function getQuickDefaults() {
+      const st = document.getElementById("defaultType").value;
+      const q = parseInt(document.getElementById("defaultQuestions").value || "0", 10);
+      return { study_type: st, target_questions: q > 0 ? q : null };
+    }
+
+    window.addTopic = (fullDers, konu) => {
+      const { study_type, target_questions } = getQuickDefaults();
+      currentWeek()[state.active_day].push({
+        ders: fullDers,
+        konu: konu,
+        study_type,
+        target_questions,
+        note: "",
+      });
+      renderSchedule();
+      notify(`'${konu}' → ${state.active_day} gününe eklendi`);
+    };
+
+    window.addUnitTopics = (topicsJsonEnc, unitName) => {
+      const topics = JSON.parse(decodeURIComponent(topicsJsonEnc));
+      const { study_type, target_questions } = getQuickDefaults();
+      for (const t of topics) {
+        currentWeek()[state.active_day].push({
+          ders: t.full_ders,
+          konu: t.konu,
+          study_type,
+          target_questions,
+          note: "",
+        });
+      }
+      renderSchedule();
+      notify(`'${unitName}' (${topics.length} konu) → ${state.active_day}`);
+    };
+
+    // ------------------------------------------------------------------ //
+    // Sağ Panel: Müfredat API Yükleme
+    // ------------------------------------------------------------------ //
+    async function refreshSubjectsDropdown() {
+      const params = new URLSearchParams({
+        year: filterState.year,
+        session: filterState.session,
+        puan_turu: filterState.puan_turu,
+      });
+      const res = await fetch(`./api/subjects?${params}`);
+      const data = await res.json();
+      const sel = document.getElementById("filterDers");
+      const names = data.subjects.map(s => s.ders);
+      if (filterState.ders !== "Tümü" && !names.includes(filterState.ders)) {
+        filterState.ders = "Tümü";
+      }
+      sel.innerHTML = `<option value="Tümü">Tüm Dersler</option>` +
+        names.map(d => `<option value="${escapeHtml(d)}" ${filterState.ders === d ? "selected" : ""}>${escapeHtml(d)}</option>`).join("");
+    }
+
+    async function refreshCurriculum() {
+      const listEl = document.getElementById("curriculumList");
+      if (filterState.ders === "Tümü" && !filterState.q.trim()) {
+        const params = new URLSearchParams({
+          year: filterState.year,
+          session: filterState.session,
+          puan_turu: filterState.puan_turu,
+        });
+        const res = await fetch(`./api/subjects?${params}`);
+        const data = await res.json();
+        if (!data.subjects.length) {
+          listEl.innerHTML = '<div style="text-align:center; padding:30px; color:#94a3b8">Uygun ders bulunamadı.</div>';
+          return;
+        }
+        listEl.innerHTML = `
+          <div style="font-size:12px; color:var(--muted); margin-bottom:8px">
+            Konuları görmek için bir ders seçin veya yukarıdan arama yapın:
+          </div>
+          <div class="subject-grid">
+            ${data.subjects.map(s => `
+              <div class="subject-card" onclick="pickSubject('${escapeHtml(s.ders).replace(/'/g, "\\'")}')">
+                <div>
+                  <div style="font-weight:700; font-size:13.5px">${escapeHtml(s.ders)}</div>
+                  <div style="font-size:12px; color:var(--muted)">${s.count} konu</div>
+                </div>
+                <span style="color:var(--primary); font-weight:700">›</span>
+              </div>
+            `).join("")}
+          </div>
+        `;
+        return;
+      }
+
+      const params = new URLSearchParams({
+        year: filterState.year,
+        session: filterState.session,
+        puan_turu: filterState.puan_turu,
+        ders: filterState.ders,
+        q: filterState.q,
+      });
+      const res = await fetch(`./api/curriculum?${params}`);
+      const data = await res.json();
+
+      if (!data.total) {
+        listEl.innerHTML = '<div style="text-align:center; padding:30px; color:#94a3b8">Aramaya uygun konu bulunamadı.</div>';
+        return;
+      }
+
+      const autoOpen = Boolean(filterState.q.trim()) || filterState.ders !== "Tümü";
+      const headerHtml = `
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px">
+          <span style="font-size:12px; color:var(--muted)">${data.total} konu listeleniyor</span>
+          ${filterState.ders !== "Tümü" ? `<button class="btn btn-ghost btn-xs" onclick="pickSubject('Tümü')">← Tüm Dersler</button>` : ""}
+        </div>
+      `;
+
+      const sectionsHtml = data.sections.map(sec => {
+        const subjTotal = sec.units.reduce((a, u) => a + u.topics.length, 0);
+        const unitsHtml = sec.units.map(u => {
+          const encodedTopics = encodeURIComponent(JSON.stringify(u.topics));
+          const isOpen = autoOpen && sec.units.length <= 6 ? "open" : "";
+          return `
+            <details class="unit-details" ${isOpen}>
+              <summary>
+                <span>${escapeHtml(u.unite)}</span>
+                <span style="font-size:11px; color:var(--muted)">${u.topics.length} konu</span>
+              </summary>
+              <div class="unit-subbar">
+                <span>${u.topics.length} alt başlık</span>
+                <button class="btn btn-ghost btn-xs" style="color:var(--primary)"
+                  onclick="addUnitTopics('${encodedTopics}', '${escapeHtml(u.unite).replace(/'/g, "\\'")}')">+ Üniteyi Ekle</button>
+              </div>
+              <div>
+                ${u.topics.map(t => {
+                  const meta = [t.sinif, t.session !== "TYT" ? t.puan_turu : "", t.agirlik].filter(Boolean).join(" · ");
+                  const encTopic = encodeURIComponent(JSON.stringify(t));
+                  return `
+                    <div class="topic-row">
+                      <div style="min-width:0; flex:1">
+                        <div class="topic-title">${escapeHtml(t.konu)}</div>
+                        ${meta ? `<div class="topic-meta">${escapeHtml(meta)}</div>` : ""}
+                      </div>
+                      <div style="display:flex; align-items:center; gap:4px; flex-shrink:0">
+                        ${t.kazanim ? `<button class="btn btn-ghost btn-xs" title="Kazanım detayı" onclick="openKazanimModal('${encTopic}')">ⓘ</button>` : ""}
+                        <button class="btn btn-primary btn-xs"
+                          onclick="addTopic('${escapeHtml(t.full_ders).replace(/'/g, "\\'")}', '${escapeHtml(t.konu).replace(/'/g, "\\'")}')">+ Ekle</button>
+                      </div>
+                    </div>
+                  `;
+                }).join("")}
+              </div>
+            </details>
+          `;
+        }).join("");
+
+        return `
+          <div class="unit-box">
+            <div class="subject-header">
+              <span>${escapeHtml(sec.subject)}</span>
+              <span>${subjTotal} konu</span>
+            </div>
+            ${unitsHtml}
+          </div>
+        `;
+      }).join("");
+
+      listEl.innerHTML = headerHtml + sectionsHtml;
+    }
+
+    window.pickSubject = async (dersName) => {
+      filterState.ders = dersName;
+      document.getElementById("filterDers").value = dersName;
+      await refreshCurriculum();
+    };
+
+    // ------------------------------------------------------------------ //
+    // Modallar
+    // ------------------------------------------------------------------ //
+    function openModal(html) {
+      document.getElementById("modalContent").innerHTML = html;
+      document.getElementById("modalBackdrop").classList.add("open");
+    }
+    window.closeModal = () => {
+      document.getElementById("modalBackdrop").classList.remove("open");
+    };
+    document.getElementById("modalBackdrop").addEventListener("click", (e) => {
+      if (e.target.id === "modalBackdrop") closeModal();
+    });
+
+    window.openKazanimModal = (encTopic) => {
+      const t = JSON.parse(decodeURIComponent(encTopic));
+      openModal(`
+        <div class="modal-title">${escapeHtml(t.konu)}</div>
+        <div style="font-size:12px; color:var(--primary); font-weight:600; margin-bottom:10px">${escapeHtml(t.session)} · ${escapeHtml(t.ders)} · ${escapeHtml(t.unite)}</div>
+        <div style="font-size:13.5px; color:#334155; line-height:1.55">${escapeHtml(t.kazanim)}</div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="closeModal()">Kapat</button>
+          <button class="btn btn-primary" onclick="addTopic('${escapeHtml(t.full_ders).replace(/'/g, "\\'")}', '${escapeHtml(t.konu).replace(/'/g, "\\'")}'); closeModal()">+ Aktif Güne Ekle</button>
+        </div>
+      `);
+    };
+
+    window.openCustomModal = (day) => {
+      const def = getQuickDefaults();
+      openModal(`
+        <div class="modal-title">${day} — Özel Görev Ekle</div>
+        <div class="field"><label>Ders</label><input id="cDers" class="input" style="width:100%" placeholder="Örn: Genel Deneme / TYT Türkçe" /></div>
+        <div class="field"><label>Konu / Görev</label><input id="cKonu" class="input" style="width:100%" placeholder="Örn: TYT Genel Deneme + Analiz" /></div>
+        <div style="display:flex; gap:10px">
+          <div class="field" style="flex:1"><label>Çalışma Türü</label>
+            <select id="cType" class="select" style="width:100%">${STUDY_TYPES.map(s => `<option ${s === def.study_type ? "selected" : ""}>${s}</option>`).join("")}</select>
+          </div>
+          <div class="field" style="width:120px"><label>Hedef Soru</label><input id="cQ" type="number" min="0" step="5" class="input" style="width:100%" value="${def.target_questions || 30}" /></div>
+        </div>
+        <div class="field"><label>Not (İsteğe bağlı)</label><input id="cNote" class="input" style="width:100%" placeholder="Örn: Süre tutarak" /></div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="closeModal()">İptal</button>
+          <button class="btn btn-primary" onclick="saveCustomTask('${day}')">Ekle</button>
+        </div>
+      `);
+    };
+
+    window.saveCustomTask = (day) => {
+      const ders = document.getElementById("cDers").value.trim();
+      const konu = document.getElementById("cKonu").value.trim();
+      if (!ders || !konu) return alert("Ders ve Konu alanları zorunludur.");
+      const q = parseInt(document.getElementById("cQ").value || "0", 10);
+      currentWeek()[day].push({
+        ders,
+        konu,
+        study_type: document.getElementById("cType").value,
+        target_questions: q > 0 ? q : null,
+        note: document.getElementById("cNote").value.trim(),
+      });
+      state.active_day = day;
+      closeModal();
+      renderSchedule();
+    };
+
+    window.openCopyModal = (sourceDay, taskIdx) => {
+      const t = currentWeek()[sourceDay][taskIdx];
+      openModal(`
+        <div class="modal-title">Görevi Başka Güne Kopyala</div>
+        <div style="font-size:12px; color:var(--muted); margin-bottom:10px">${escapeHtml(t.ders)} — ${escapeHtml(t.konu)}</div>
+        <div class="field"><label>Hedef Gün</label>
+          <select id="copyTargetDay" class="select" style="width:100%">
+            ${DAYS.map(d => `<option value="${d}" ${d === sourceDay ? "selected" : ""}>${d}</option>`).join("")}
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="closeModal()">İptal</button>
+          <button class="btn btn-primary" onclick="confirmCopyTask('${sourceDay}', ${taskIdx})">Kopyala</button>
+        </div>
+      `);
+    };
+
+    window.confirmCopyTask = (sourceDay, taskIdx) => {
+      const target = document.getElementById("copyTargetDay").value;
+      const copy = JSON.parse(JSON.stringify(currentWeek()[sourceDay][taskIdx]));
+      currentWeek()[target].push(copy);
+      closeModal();
+      renderSchedule();
+      notify(`${target} gününe kopyalandı`);
+    };
+
+    function openRoutineModal() {
+      openModal(`
+        <div class="modal-title">Rutin Dağıtıcı (Çoklu Güne Ekle)</div>
+        <div style="font-size:12px; color:var(--muted); margin-bottom:10px">Paragraf, Problem veya tekrar rutinlerini seçili günlere tek tıkla dağıtın.</div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px">
+          <button class="btn btn-outline btn-xs" onclick="fillRoutine('TYT Türkçe','Paragraf Rutini','Soru Çözümü',20)">20 Paragraf</button>
+          <button class="btn btn-outline btn-xs" onclick="fillRoutine('TYT Matematik','Problem Rutini','Soru Çözümü',20)">20 Problem</button>
+          <button class="btn btn-outline btn-xs" onclick="fillRoutine('TYT Geometri','Geometri Rutini','Soru Çözümü',20)">20 Geometri</button>
+          <button class="btn btn-outline btn-xs" onclick="fillRoutine('Genel Deneme','TYT Genel Deneme + Analiz','Deneme',120)">TYT Deneme</button>
+        </div>
+        <div class="field"><label>Ders</label><input id="rDers" class="input" style="width:100%" value="TYT Türkçe" /></div>
+        <div class="field"><label>Konu / Rutin Açıklaması</label><input id="rKonu" class="input" style="width:100%" value="Paragraf Rutini" /></div>
+        <div style="display:flex; gap:10px">
+          <div class="field" style="flex:1"><label>Çalışma Türü</label>
+            <select id="rType" class="select" style="width:100%">${STUDY_TYPES.map(s => `<option ${s === "Soru Çözümü" ? "selected" : ""}>${s}</option>`).join("")}</select>
+          </div>
+          <div class="field" style="width:120px"><label>Hedef Soru</label><input id="rQ" type="number" min="0" step="5" class="input" style="width:100%" value="20" /></div>
+        </div>
+        <div class="field">
+          <label>Günler</label>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; font-size:12.5px">
+            ${DAYS.map(d => `<label style="display:inline-flex; align-items:center; gap:4px; font-weight:500"><input type="checkbox" class="r-day" value="${d}" ${d !== "PAZAR" ? "checked" : ""} /> ${d}</label>`).join("")}
+          </div>
+          <div style="display:flex; gap:6px; margin-top:6px">
+            <button class="btn btn-ghost btn-xs" onclick="setRoutineDays(false)">Hafta İçi</button>
+            <button class="btn btn-ghost btn-xs" onclick="setRoutineDays(true)">Tüm Hafta</button>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="closeModal()">İptal</button>
+          <button class="btn btn-primary" onclick="applyRoutine()">Seçili Günlere Dağıt</button>
+        </div>
+      `);
+    }
+    window.fillRoutine = (d, k, t, q) => {
+      document.getElementById("rDers").value = d;
+      document.getElementById("rKonu").value = k;
+      document.getElementById("rType").value = t;
+      document.getElementById("rQ").value = q;
+    };
+    window.setRoutineDays = (all) => {
+      document.querySelectorAll(".r-day").forEach(cb => {
+        cb.checked = all || (cb.value !== "CUMARTESİ" && cb.value !== "PAZAR");
+      });
+    };
+    window.applyRoutine = () => {
+      const ders = document.getElementById("rDers").value.trim();
+      const konu = document.getElementById("rKonu").value.trim();
+      const st = document.getElementById("rType").value;
+      const q = parseInt(document.getElementById("rQ").value || "0", 10);
+      const selected = Array.from(document.querySelectorAll(".r-day:checked")).map(c => c.value);
+      if (!ders || !konu || !selected.length) return alert("Ders, konu ve en az 1 gün seçmelisiniz.");
+      for (const d of selected) {
+        currentWeek()[d].push({ ders, konu, study_type: st, target_questions: q > 0 ? q : null, note: "" });
+      }
+      closeModal();
+      renderSchedule();
+      notify(`'${konu}' ${selected.length} güne eklendi`);
+    };
+
+    // ------------------------------------------------------------------ //
+    // Excel Export (POST -> Blob Download)
+    // ------------------------------------------------------------------ //
+    async function exportExcel() {
+      const btn = document.getElementById("btnExport");
+      btn.disabled = true;
+      btn.textContent = "Hazırlanıyor...";
+      try {
+        const res = await fetch("./api/export", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            student_name: state.student_name,
+            template_mode: state.template_mode,
+            week_labels: state.week_labels,
+            weeks: state.weeks,
+          }),
+        });
+        if (!res.ok) throw new Error("Export hatası");
+        const blob = await res.blob();
+        let filename = state.template_mode === "single" ? "Haftalik_Program.xlsx" : "4_Haftalik_Kompakt_Program.xlsx";
+        const cd = res.headers.get("Content-Disposition") || "";
+        const m = cd.match(/filename\*=UTF-8''([^;]+)/i);
+        if (m) filename = decodeURIComponent(m[1]);
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        notify(`Excel indirildi: ${filename}`);
+      } catch (err) {
+        alert("Excel oluşturulurken hata oluştu.");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "⬇ Excel Olarak İndir";
+      }
+    }
+
+    // ------------------------------------------------------------------ //
+    // Olay Bağlantıları ve Başlatma
+    // ------------------------------------------------------------------ //
+    document.getElementById("studentName").addEventListener("input", (e) => {
+      state.student_name = e.target.value;
+      saveState();
+    });
+    document.getElementById("weekLabelInput").addEventListener("input", (e) => {
+      state.week_labels[currentWeekIdx()] = e.target.value;
+      saveState();
+    });
+
+    document.querySelectorAll("#modeToggle button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        state.template_mode = btn.dataset.mode;
+        renderSchedule();
+      });
+    });
+
+    document.querySelectorAll("#yearToggle button").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        filterState.year = Number(btn.dataset.year);
+        document.querySelectorAll("#yearToggle button").forEach(b => b.classList.toggle("active", b === btn));
+        await refreshSubjectsDropdown();
+        await refreshCurriculum();
+      });
+    });
+
+    document.getElementById("filterSession").addEventListener("change", async (e) => {
+      filterState.session = e.target.value;
+      await refreshSubjectsDropdown();
+      await refreshCurriculum();
+    });
+    document.getElementById("filterPuan").addEventListener("change", async (e) => {
+      filterState.puan_turu = e.target.value;
+      await refreshSubjectsDropdown();
+      await refreshCurriculum();
+    });
+    document.getElementById("filterDers").addEventListener("change", async (e) => {
+      filterState.ders = e.target.value;
+      await refreshCurriculum();
+    });
+
+    let searchTimer = null;
+    document.getElementById("searchInput").addEventListener("input", (e) => {
+      filterState.q = e.target.value;
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(refreshCurriculum, 120);
+    });
+
+    document.querySelectorAll(".q-preset").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.getElementById("defaultQuestions").value = btn.dataset.q;
+        if (btn.dataset.q === "0") {
+          document.getElementById("defaultType").value = "Konu";
+        }
+      });
+    });
+
+    document.getElementById("btnRoutine").addEventListener("click", openRoutineModal);
+    document.getElementById("btnClear").addEventListener("click", () => {
+      openModal(`
+        <div class="modal-title">Haftayı Temizle</div>
+        <div style="font-size:13.5px; color:#475569">Aktif haftadaki tüm ders ve konular silinecek. Emin misiniz?</div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="closeModal()">Vazgeç</button>
+          <button class="btn btn-primary" style="background:var(--danger)" onclick="state.weeks[currentWeekIdx()] = emptyWeek(); closeModal(); renderSchedule(); notify('Hafta temizlendi')">Evet, Temizle</button>
+        </div>
+      `);
+    });
+    document.getElementById("btnExport").addEventListener("click", exportExcel);
+
+    renderSchedule();
+    refreshSubjectsDropdown().then(refreshCurriculum);
+  </script>
+</body>
+</html>
