@@ -29,7 +29,7 @@ jobs:
           mkdir -p _site/data _site/templates
           cp web/index.html _site/index.html
           cp data/mufredat_2027.json data/mufredat_2028.json _site/data/
-          cp templates/haftalik_bos.xlsx templates/kompakt_sablon.xlsx _site/templates/
+          cp templates/haftalik_bos.xlsx templates/kompakt_sablon.xlsx templates/aylik_matris.xlsx _site/templates/
           cp curriculum.py excel_exporter.py _site/
           touch _site/.nojekyll
 

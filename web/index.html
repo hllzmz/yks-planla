@@ -374,6 +374,7 @@
       <div class="segmented" id="modeToggle">
         <button data-mode="single" class="active">Tek Haftalık Şablon</button>
         <button data-mode="compact">4 Haftalık Kompakt</button>
+        <button data-mode="monthly">Aylık Gelişim Matrisi</button>
       </div>
 
       <button class="btn btn-outline" id="btnRoutine">↻ Rutin Dağıt</button>
@@ -466,6 +467,13 @@
   <script>
     const DAYS = ["PAZARTESİ", "SALI", "ÇARŞAMBA", "PERŞEMBE", "CUMA", "CUMARTESİ", "PAZAR"];
     const STUDY_TYPES = ["Konu", "Soru Çözümü", "Tekrar", "Deneme"];
+    const MATRIX_SUBJECTS = [
+      "TÜRKÇE", "TEMEL MATEMATİK", "TYT GEOMETRİ", "TYT FİZİK", "TYT KİMYA", "TYT BİYOLOJİ",
+      "TYT TARİH", "TYT COĞRAFYA", "TYT FELSEFE", "TYT DİN KÜLTÜRÜ",
+      "AYT MATEMATİK", "AYT GEOMETRİ", "AYT FİZİK", "AYT KİMYA", "AYT BİYOLOJİ",
+      "TÜRK DİLİ VE EDEBİYATI", "AYT TARİH 1", "AYT TARİH 2", "AYT COĞRAFYA 1", "AYT COĞRAFYA 2",
+      "AYT FELSEFE GRUBU", "AYT DİN KÜLTÜRÜ"
+    ];
     const STORAGE_KEY = "yks_planla_state_v1";
 
     function emptyWeek() {
@@ -474,24 +482,53 @@
       return w;
     }
 
+    function emptyMatrixWeek() {
+      const m = {};
+      for (const s of MATRIX_SUBJECTS) m[s] = { topics: [], target_questions: null };
+      return m;
+    }
+
+    function ensureMatrixShape(obj) {
+      if (!Array.isArray(obj.monthly_matrix) || obj.monthly_matrix.length !== 4) {
+        obj.monthly_matrix = [emptyMatrixWeek(), emptyMatrixWeek(), emptyMatrixWeek(), emptyMatrixWeek()];
+      } else {
+        obj.monthly_matrix = obj.monthly_matrix.map(mw => {
+          const clean = emptyMatrixWeek();
+          for (const s of MATRIX_SUBJECTS) {
+            if (mw && mw[s]) {
+              clean[s] = {
+                topics: Array.isArray(mw[s].topics) ? mw[s].topics : [],
+                target_questions: mw[s].target_questions || null,
+              };
+            }
+          }
+          return clean;
+        });
+      }
+      if (!obj.active_matrix_subject || !MATRIX_SUBJECTS.includes(obj.active_matrix_subject)) {
+        obj.active_matrix_subject = "TÜRKÇE";
+      }
+      return obj;
+    }
+
     function loadSavedState() {
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
           const parsed = JSON.parse(raw);
           if (parsed && Array.isArray(parsed.weeks) && parsed.weeks.length === 4) {
-            return parsed;
+            return ensureMatrixShape(parsed);
           }
         }
       } catch (e) {}
-      return {
+      return ensureMatrixShape({
         student_name: "",
         template_mode: "single",
         active_week_idx: 0,
         week_labels: ["1. Hafta", "2. Hafta", "3. Hafta", "4. Hafta"],
         weeks: [emptyWeek(), emptyWeek(), emptyWeek(), emptyWeek()],
         active_day: "PAZARTESİ",
-      };
+      });
     }
 
     const state = loadSavedState();
@@ -512,6 +549,52 @@
     }
     function currentWeek() {
       return state.weeks[currentWeekIdx()];
+    }
+
+    function mapTopicToMatrixSubject(fullDers, preferredSubject) {
+      const parts = String(fullDers || "").trim().split(/\s+/);
+      const sess = (parts[0] || "").toUpperCase();
+      const ders = parts.slice(1).join(" ");
+      if (sess === "TYT") {
+        const map = {
+          "Türkçe": "TÜRKÇE",
+          "Matematik": "TEMEL MATEMATİK",
+          "Geometri": "TYT GEOMETRİ",
+          "Fizik": "TYT FİZİK",
+          "Kimya": "TYT KİMYA",
+          "Biyoloji": "TYT BİYOLOJİ",
+          "Tarih": "TYT TARİH",
+          "Coğrafya": "TYT COĞRAFYA",
+          "Felsefe": "TYT FELSEFE",
+          "Din Kültürü": "TYT DİN KÜLTÜRÜ",
+        };
+        if (map[ders]) return map[ders];
+      }
+      if (sess === "AYT") {
+        if (ders === "Tarih") {
+          return (preferredSubject === "AYT TARİH 1" || preferredSubject === "AYT TARİH 2")
+            ? preferredSubject : "AYT TARİH 1";
+        }
+        if (ders === "Coğrafya") {
+          return (preferredSubject === "AYT COĞRAFYA 1" || preferredSubject === "AYT COĞRAFYA 2")
+            ? preferredSubject : "AYT COĞRAFYA 1";
+        }
+        const map = {
+          "Matematik": "AYT MATEMATİK",
+          "Geometri": "AYT GEOMETRİ",
+          "Fizik": "AYT FİZİK",
+          "Kimya": "AYT KİMYA",
+          "Biyoloji": "AYT BİYOLOJİ",
+          "Türk Dili ve Edebiyatı": "TÜRK DİLİ VE EDEBİYATI",
+          "Felsefe": "AYT FELSEFE GRUBU",
+          "Mantık": "AYT FELSEFE GRUBU",
+          "Psikoloji": "AYT FELSEFE GRUBU",
+          "Sosyoloji": "AYT FELSEFE GRUBU",
+          "Din Kültürü": "AYT DİN KÜLTÜRÜ",
+        };
+        if (map[ders]) return map[ders];
+      }
+      return preferredSubject && MATRIX_SUBJECTS.includes(preferredSubject) ? preferredSubject : "TÜRKÇE";
     }
 
     let toastTimer = null;
@@ -538,36 +621,112 @@
       saveState();
       const idx = currentWeekIdx();
       const week = currentWeek();
+      const isMonthly = state.template_mode === "monthly";
 
       document.getElementById("studentName").value = state.student_name || "";
       document.getElementById("weekLabelInput").value = state.week_labels[idx] || `${idx + 1}. Hafta`;
-      document.getElementById("activeDayBadge").textContent = `Aktif Gün: ${state.active_day}`;
-      document.getElementById("targetDayHint").textContent = `Eklenecek Gün: ${state.active_day}`;
 
       document.querySelectorAll("#modeToggle button").forEach(b => {
         b.classList.toggle("active", b.dataset.mode === state.template_mode);
       });
 
-      // 4 Haftalık Sekmeler
+      const btnRoutine = document.getElementById("btnRoutine");
+      if (btnRoutine) btnRoutine.style.display = isMonthly ? "none" : "inline-flex";
+
+      // 4 Haftalık Sekmeler (Kompakt + Aylık Matris)
       const weekTabs = document.getElementById("weekTabs");
-      if (state.template_mode === "compact") {
+      if (state.template_mode === "compact" || isMonthly) {
         weekTabs.style.display = "flex";
         let html = '<div style="display:flex; gap:6px; flex-wrap:wrap">';
         for (let i = 0; i < 4; i++) {
-          const cnt = DAYS.reduce((acc, d) => acc + (state.weeks[i][d]?.length || 0), 0);
+          const cnt = isMonthly
+            ? MATRIX_SUBJECTS.reduce((acc, s) => acc + (state.monthly_matrix[i][s]?.topics?.length || 0), 0)
+            : DAYS.reduce((acc, d) => acc + (state.weeks[i][d]?.length || 0), 0);
           const cls = i === state.active_week_idx ? "btn btn-primary btn-sm" : "btn btn-outline btn-sm";
           html += `<button class="${cls}" onclick="selectWeek(${i})">${i + 1}. Hafta (${cnt})</button>`;
         }
-        html += "</div>";
+        html += "</div><div style='display:flex; gap:6px; flex-wrap:wrap'>";
+        if (isMonthly) {
+          html += `<button class="btn btn-outline btn-sm" onclick="importWeeksToMatrix()">⇄ 4 Haftalıktan Aktar</button>`;
+        }
         if (state.active_week_idx < 3) {
           html += `<button class="btn btn-outline btn-sm" onclick="copyToNextWeek()">📋 ${state.active_week_idx + 2}. Haftaya Kopyala</button>`;
         }
+        html += "</div>";
         weekTabs.innerHTML = html;
       } else {
         weekTabs.style.display = "none";
       }
 
-      // Toplam Sayaç
+      const container = document.getElementById("daysContainer");
+
+      if (isMonthly) {
+        const mWeek = state.monthly_matrix[idx];
+        let totalTopics = 0;
+        let weekQ = 0;
+        let monthQ = 0;
+        for (const s of MATRIX_SUBJECTS) {
+          totalTopics += mWeek[s].topics.length;
+          weekQ += Number(mWeek[s].target_questions || 0);
+          for (let wi = 0; wi < 4; wi++) {
+            monthQ += Number(state.monthly_matrix[wi][s]?.target_questions || 0);
+          }
+        }
+        document.getElementById("activeDayBadge").textContent = `Aktif Satır: ${state.active_matrix_subject}`;
+        document.getElementById("targetDayHint").textContent = `Eşlenecek: Otomatik (${idx + 1}. Hafta)`;
+        document.getElementById("weekTotalLabel").textContent = `${idx + 1}. Hafta: ${totalTopics} konu · ${weekQ} soru (Aylık: ${monthQ})`;
+
+        container.innerHTML = MATRIX_SUBJECTS.map(subj => {
+          const entry = mWeek[subj] || { topics: [], target_questions: null };
+          const isActive = state.active_matrix_subject === subj;
+          const subjMonthQ = [0, 1, 2, 3].reduce((acc, wi) => acc + Number(state.monthly_matrix[wi][subj]?.target_questions || 0), 0);
+          const otherWeeksCount = [0, 1, 2, 3]
+            .map(wi => `${wi + 1}.H:${state.monthly_matrix[wi][subj]?.topics?.length || 0}`)
+            .join(" · ");
+
+          const topicsHtml = entry.topics.length === 0
+            ? `<div class="empty-day">Bu hafta için konu eklenmedi. Sağdan konu eklediğinizde otomatik buraya yerleşir.</div>`
+            : `<div class="task-list">${entry.topics.map((topicText, ti) => `
+                <div class="task-row">
+                  <div class="task-main">
+                    <input class="task-topic-input" value="${escapeHtml(topicText)}"
+                      onchange="updateMatrixTopic('${subj}', ${ti}, this.value)" />
+                  </div>
+                  <div class="task-controls">
+                    <button class="btn btn-ghost btn-xs" ${ti === 0 ? "disabled" : ""} onclick="moveMatrixTopic('${subj}', ${ti}, -1)">↑</button>
+                    <button class="btn btn-ghost btn-xs" ${ti === entry.topics.length - 1 ? "disabled" : ""} onclick="moveMatrixTopic('${subj}', ${ti}, 1)">↓</button>
+                    <button class="btn btn-danger-ghost btn-xs" onclick="deleteMatrixTopic('${subj}', ${ti})">✕</button>
+                  </div>
+                </div>
+              `).join("")}</div>`;
+
+          return `
+            <div class="card day-card ${isActive ? "active" : ""}" style="border-left-color: ${subj.startsWith("AYT") || subj === "TÜRK DİLİ VE EDEBİYATI" ? "#8b5cf6" : "#2563eb"}">
+              <div class="day-header" onclick="setActiveMatrixSubject('${subj}')">
+                <div class="day-title">
+                  ${isActive ? "📌 " : ""}${subj}
+                  <span style="font-size:11px; font-weight:500; color:#64748b">(${otherWeeksCount})</span>
+                </div>
+                <div class="day-meta" onclick="event.stopPropagation()">
+                  <span style="font-size:11px; color:#64748b">Hafta Soru:</span>
+                  <input type="number" min="0" step="10" class="input q-input"
+                    value="${entry.target_questions ?? 0}"
+                    onchange="updateMatrixQuestions('${subj}', this.value)" />
+                  <span style="font-size:11px; color:#64748b">Top: ${subjMonthQ}</span>
+                  <button class="btn btn-outline btn-xs" onclick="openMatrixCustomModal('${subj}')">+ Özel</button>
+                </div>
+              </div>
+              ${topicsHtml}
+            </div>
+          `;
+        }).join("");
+        return;
+      }
+
+      // Tek Haftalık veya 4 Haftalık Kompakt Görünümü
+      document.getElementById("activeDayBadge").textContent = `Aktif Gün: ${state.active_day}`;
+      document.getElementById("targetDayHint").textContent = `Eklenecek Gün: ${state.active_day}`;
+
       let totalTasks = 0;
       let totalQ = 0;
       for (const d of DAYS) {
@@ -578,8 +737,6 @@
       }
       document.getElementById("weekTotalLabel").textContent = `Toplam: ${totalTasks} görev · ${totalQ} soru`;
 
-      // Gün Kartları
-      const container = document.getElementById("daysContainer");
       container.innerHTML = DAYS.map(day => {
         const tasks = week[day] || [];
         const isActive = state.active_day === day;
@@ -634,13 +791,84 @@
     // Program İşlemleri
     // ------------------------------------------------------------------ //
     window.setActiveDay = (day) => { state.active_day = day; renderSchedule(); };
+    window.setActiveMatrixSubject = (subj) => { state.active_matrix_subject = subj; renderSchedule(); };
     window.selectWeek = (idx) => { state.active_week_idx = idx; renderSchedule(); };
 
     window.copyToNextWeek = () => {
       const i = state.active_week_idx;
       if (i >= 3) return;
-      state.weeks[i + 1] = JSON.parse(JSON.stringify(state.weeks[i]));
+      if (state.template_mode === "monthly") {
+        state.monthly_matrix[i + 1] = JSON.parse(JSON.stringify(state.monthly_matrix[i]));
+      } else {
+        state.weeks[i + 1] = JSON.parse(JSON.stringify(state.weeks[i]));
+      }
       notify(`${i + 1}. Hafta → ${i + 2}. Haftaya kopyalandı`);
+      renderSchedule();
+    };
+
+    window.importWeeksToMatrix = () => {
+      const newMatrix = [emptyMatrixWeek(), emptyMatrixWeek(), emptyMatrixWeek(), emptyMatrixWeek()];
+      for (let wi = 0; wi < 4; wi++) {
+        for (const d of DAYS) {
+          for (const t of (state.weeks[wi][d] || [])) {
+            const targetSubj = mapTopicToMatrixSubject(t.ders, null);
+            if (!targetSubj) continue;
+            const entry = newMatrix[wi][targetSubj];
+            if (t.konu && !entry.topics.includes(t.konu)) {
+              entry.topics.push(t.konu);
+            }
+            if (t.target_questions) {
+              entry.target_questions = (entry.target_questions || 0) + Number(t.target_questions);
+            }
+          }
+        }
+      }
+      state.monthly_matrix = newMatrix;
+      renderSchedule();
+      notify("4 haftalık programdaki konular matrise aktarıldı");
+    };
+
+    window.updateMatrixTopic = (subj, idx, val) => {
+      const entry = state.monthly_matrix[currentWeekIdx()][subj];
+      if (entry) entry.topics[idx] = val;
+      saveState();
+    };
+    window.moveMatrixTopic = (subj, idx, delta) => {
+      const list = state.monthly_matrix[currentWeekIdx()][subj].topics;
+      const next = idx + delta;
+      if (next < 0 || next >= list.length) return;
+      [list[idx], list[next]] = [list[next], list[idx]];
+      renderSchedule();
+    };
+    window.deleteMatrixTopic = (subj, idx) => {
+      state.monthly_matrix[currentWeekIdx()][subj].topics.splice(idx, 1);
+      renderSchedule();
+    };
+    window.updateMatrixQuestions = (subj, val) => {
+      const num = parseInt(val, 10);
+      state.monthly_matrix[currentWeekIdx()][subj].target_questions = num > 0 ? num : null;
+      renderSchedule();
+    };
+    window.openMatrixCustomModal = (subj) => {
+      openModal(`
+        <div class="modal-title">${subj} — Özel Konu Ekle (${currentWeekIdx() + 1}. Hafta)</div>
+        <div class="field"><label>Konu / Açıklama</label><input id="mcKonu" class="input" style="width:100%" placeholder="Örn: Paragraf Denemesi / Tekrar" /></div>
+        <div class="field"><label>Eklenecek Hedef Soru (İsteğe bağlı)</label><input id="mcQ" type="number" min="0" step="5" class="input" style="width:100%" value="0" /></div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="closeModal()">İptal</button>
+          <button class="btn btn-primary" onclick="saveMatrixCustom('${subj}')">Ekle</button>
+        </div>
+      `);
+    };
+    window.saveMatrixCustom = (subj) => {
+      const konu = document.getElementById("mcKonu").value.trim();
+      if (!konu) return alert("Konu alanı zorunludur.");
+      const q = parseInt(document.getElementById("mcQ").value || "0", 10);
+      const entry = state.monthly_matrix[currentWeekIdx()][subj];
+      entry.topics.push(konu);
+      if (q > 0) entry.target_questions = (entry.target_questions || 0) + q;
+      state.active_matrix_subject = subj;
+      closeModal();
       renderSchedule();
     };
 
@@ -677,6 +905,16 @@
 
     window.addTopic = (fullDers, konu) => {
       const { study_type, target_questions } = getQuickDefaults();
+      if (state.template_mode === "monthly") {
+        const subj = mapTopicToMatrixSubject(fullDers, state.active_matrix_subject);
+        const entry = state.monthly_matrix[currentWeekIdx()][subj];
+        if (!entry.topics.includes(konu)) entry.topics.push(konu);
+        if (target_questions) entry.target_questions = (entry.target_questions || 0) + target_questions;
+        state.active_matrix_subject = subj;
+        renderSchedule();
+        notify(`'${konu}' → ${subj} (${currentWeekIdx() + 1}. Hafta)`);
+        return;
+      }
       currentWeek()[state.active_day].push({
         ders: fullDers,
         konu: konu,
@@ -691,6 +929,20 @@
     window.addUnitTopics = (topicsJsonEnc, unitName) => {
       const topics = JSON.parse(decodeURIComponent(topicsJsonEnc));
       const { study_type, target_questions } = getQuickDefaults();
+      if (state.template_mode === "monthly") {
+        let lastSubj = state.active_matrix_subject;
+        for (const t of topics) {
+          const subj = mapTopicToMatrixSubject(t.full_ders, state.active_matrix_subject);
+          const entry = state.monthly_matrix[currentWeekIdx()][subj];
+          if (!entry.topics.includes(t.konu)) entry.topics.push(t.konu);
+          if (target_questions) entry.target_questions = (entry.target_questions || 0) + target_questions;
+          lastSubj = subj;
+        }
+        state.active_matrix_subject = lastSubj;
+        renderSchedule();
+        notify(`'${unitName}' (${topics.length} konu) → ${lastSubj}`);
+        return;
+      }
       for (const t of topics) {
         currentWeek()[state.active_day].push({
           ders: t.full_ders,
@@ -1060,47 +1312,61 @@
         const s = document.createElement("script");
         s.src = src;
         s.onload = resolve;
-        s.onerror = () => reject(new Error("Pyodide betiği yüklenemedi"));
+        s.onerror = () => reject(new Error("Dış kaynak yüklenemedi"));
         document.head.appendChild(s);
       });
     }
 
-    async function getPyodideEngine(btn) {
+    async function getPyodideEngine() {
       if (!pyodideReadyPromise) {
         pyodideReadyPromise = (async () => {
-          btn.textContent = "Python motoru yükleniyor (~5 sn)...";
           await loadScriptOnce("https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js");
           const pyodide = await window.loadPyodide();
-          btn.textContent = "Excel kütüphanesi kuruluyor...";
           await pyodide.loadPackage(["micropip", "pillow"]);
           await pyodide.runPythonAsync(`
             import micropip
             await micropip.install("openpyxl")
           `);
 
-          // Python modüllerini ve şablon Excel dosyalarını Pyodide sanal dosya sistemine yaz
           pyodide.FS.mkdirTree("/app/templates");
           pyodide.FS.mkdirTree("/app/data");
-          const [currCode, expCode, tpl1Buf, tpl2Buf] = await Promise.all([
+          const [currCode, expCode, tpl1Buf, tpl2Buf, tpl3Buf] = await Promise.all([
             fetch("./curriculum.py").then(r => r.text()),
             fetch("./excel_exporter.py").then(r => r.text()),
             fetch("./templates/haftalik_bos.xlsx").then(r => r.arrayBuffer()),
             fetch("./templates/kompakt_sablon.xlsx").then(r => r.arrayBuffer()),
+            fetch("./templates/aylik_matris.xlsx").then(r => r.arrayBuffer()),
           ]);
           pyodide.FS.writeFile("/app/curriculum.py", currCode);
           pyodide.FS.writeFile("/app/excel_exporter.py", expCode);
           pyodide.FS.writeFile("/app/templates/haftalik_bos.xlsx", new Uint8Array(tpl1Buf));
           pyodide.FS.writeFile("/app/templates/kompakt_sablon.xlsx", new Uint8Array(tpl2Buf));
+          pyodide.FS.writeFile("/app/templates/aylik_matris.xlsx", new Uint8Array(tpl3Buf));
 
           await pyodide.runPythonAsync(`
             import sys
             if "/app" not in sys.path:
                 sys.path.insert(0, "/app")
             import json
-            from excel_exporter import ScheduleTask, export_single_week_excel, export_compact_four_weeks_excel
+            from excel_exporter import (
+                ScheduleTask,
+                export_single_week_excel,
+                export_compact_four_weeks_excel,
+                export_monthly_matrix_excel,
+            )
 
             def run_export_from_json(payload_json: str) -> bytes:
                 payload = json.loads(payload_json)
+                labels = payload.get("week_labels", ["1. Hafta", "2. Hafta", "3. Hafta", "4. Hafta"])
+                mode = payload.get("template_mode", "single")
+
+                if mode == "monthly":
+                    return export_monthly_matrix_excel(
+                        matrix_weeks=payload.get("monthly_matrix", []),
+                        student_name=payload.get("student_name", ""),
+                        week_labels=labels,
+                    )
+
                 weeks_conv = []
                 for w in payload.get("weeks", []):
                     w_dict = {}
@@ -1117,8 +1383,7 @@
                         ]
                     weeks_conv.append(w_dict)
 
-                labels = payload.get("week_labels", ["1. Hafta", "2. Hafta", "3. Hafta", "4. Hafta"])
-                if payload.get("template_mode") == "single":
+                if mode == "single":
                     return export_single_week_excel(
                         week_plan=weeks_conv[0] if weeks_conv else {},
                         student_name=payload.get("student_name", ""),
@@ -1165,14 +1430,16 @@
         template_mode: state.template_mode,
         week_labels: state.week_labels,
         weeks: state.weeks,
+        monthly_matrix: state.monthly_matrix,
       };
       const baseName = safeFilePart(state.student_name, "Ogrenci");
       const defaultFilename = state.template_mode === "single"
         ? `${baseName}_${safeFilePart(state.week_labels[0], "1_Hafta")}_Program.xlsx`
-        : `${baseName}_4_Haftalik_Kompakt_Program.xlsx`;
+        : state.template_mode === "monthly"
+          ? `${baseName}_Aylik_Gelisim_Matrisi.xlsx`
+          : `${baseName}_4_Haftalik_Kompakt_Program.xlsx`;
 
       try {
-        // 1) Yerel FastAPI sunucusu varsa doğrudan ondan hızlı export al
         let usedApi = false;
         try {
           const res = await fetch("./api/export", {
@@ -1192,10 +1459,8 @@
           }
         } catch (_) {}
 
-        // 2) GitHub Pages gibi statik ortamda Pyodide (tarayıcı içi Python) kullan
         if (!usedApi) {
-          const pyodide = await getPyodideEngine(btn);
-          btn.textContent = "Excel oluşturuluyor...";
+          const pyodide = await getPyodideEngine();
           pyodide.globals.set("payload_json_js", JSON.stringify(payload));
           const pyBytes = pyodide.runPython("run_export_from_json(payload_json_js)");
           const uint8 = pyBytes.toJs({ create_proxies: false });
@@ -1208,7 +1473,7 @@
         }
       } catch (err) {
         console.error(err);
-        alert("Excel oluşturulurken hata oluştu: " + (err?.message || err));
+        alert("Excel oluşturulurken hata oluştu.");
       } finally {
         btn.disabled = false;
         btn.textContent = "⬇ Excel Olarak İndir";
@@ -1275,13 +1540,23 @@
     });
 
     document.getElementById("btnRoutine").addEventListener("click", openRoutineModal);
+    window.clearActiveWeek = () => {
+      if (state.template_mode === "monthly") {
+        state.monthly_matrix[currentWeekIdx()] = emptyMatrixWeek();
+      } else {
+        state.weeks[currentWeekIdx()] = emptyWeek();
+      }
+      closeModal();
+      renderSchedule();
+      notify("Hafta temizlendi");
+    };
     document.getElementById("btnClear").addEventListener("click", () => {
       openModal(`
         <div class="modal-title">Haftayı Temizle</div>
         <div style="font-size:13.5px; color:#475569">Aktif haftadaki tüm ders ve konular silinecek. Emin misiniz?</div>
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="closeModal()">Vazgeç</button>
-          <button class="btn btn-primary" style="background:var(--danger)" onclick="state.weeks[currentWeekIdx()] = emptyWeek(); closeModal(); renderSchedule(); notify('Hafta temizlendi')">Evet, Temizle</button>
+          <button class="btn btn-primary" style="background:var(--danger)" onclick="clearActiveWeek()">Evet, Temizle</button>
         </div>
       `);
     });

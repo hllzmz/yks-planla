@@ -17,6 +17,7 @@ from curriculum import DAYS_OF_WEEK, STUDY_TYPES, CurriculumStore
 from excel_exporter import (
     ScheduleTask,
     export_compact_four_weeks_excel,
+    export_monthly_matrix_excel,
     export_single_week_excel,
 )
 
@@ -40,13 +41,19 @@ class TaskPayload(BaseModel):
     note: str = ""
 
 
+class MatrixEntryPayload(BaseModel):
+    topics: list[str] = Field(default_factory=list)
+    target_questions: int | None = None
+
+
 class ExportPayload(BaseModel):
     student_name: str = ""
-    template_mode: str = "single"  # "single" | "compact"
+    template_mode: str = "single"  # "single" | "compact" | "monthly"
     week_labels: list[str] = Field(
         default_factory=lambda: ["1. Hafta", "2. Hafta", "3. Hafta", "4. Hafta"]
     )
     weeks: list[dict[str, list[TaskPayload]]] = Field(default_factory=list)
+    monthly_matrix: list[dict[str, MatrixEntryPayload]] = Field(default_factory=list)
 
 
 def safe_filename(name: str) -> str:
@@ -161,6 +168,25 @@ def export_excel(payload: ExportPayload) -> Response:
         )
         w_part = safe_filename(labels[0])
         filename = f"{base}_{w_part}_Program.xlsx"
+    elif payload.template_mode == "monthly":
+        matrix_weeks = [
+            {
+                subj: {
+                    "topics": entry.topics,
+                    "target_questions": entry.target_questions,
+                }
+                for subj, entry in (
+                    payload.monthly_matrix[i] if i < len(payload.monthly_matrix) else {}
+                ).items()
+            }
+            for i in range(4)
+        ]
+        data = export_monthly_matrix_excel(
+            matrix_weeks=matrix_weeks,
+            student_name=payload.student_name,
+            week_labels=labels[:4],
+        )
+        filename = f"{base}_Aylik_Gelisim_Matrisi.xlsx"
     else:
         weeks_conv = [
             _to_schedule_week(payload.weeks[i] if i < len(payload.weeks) else {})

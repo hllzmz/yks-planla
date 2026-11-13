@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import math
 import re
 from copy import copy
 from dataclasses import dataclass
@@ -12,7 +13,7 @@ import openpyxl
 from openpyxl.cell.cell import Cell
 from openpyxl.styles import Alignment, Font
 
-from curriculum import DAYS_OF_WEEK, tr_upper
+from curriculum import DAYS_OF_WEEK, MATRIX_SUBJECTS, tr_upper
 
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 
@@ -45,7 +46,26 @@ def _copy_cell_style(src: Cell, dst: Cell) -> None:
 
 def _sanitize_sheet_title(title: str, fallback: str) -> str:
     cleaned = re.sub(r"[:\\/*?\[\]]", "-", title).strip()
-    return (cleaned[:31] if cleaned else fallback)
+    return cleaned[:31] if cleaned else fallback
+
+
+def _detect_day_blocks(ws) -> list[tuple[str, int, int]]:
+    """Şablonun A sütunundan gün bloklarını (gün_adı, başlangıç_satırı, satır_kapasitesi) tespit eder."""
+    day_set = set(DAYS_OF_WEEK)
+    col_a_merges: dict[int, int] = {}
+    for m in ws.merged_cells.ranges:
+        if m.min_col == 1 and m.max_col == 1:
+            col_a_merges[m.min_row] = m.max_row - m.min_row + 1
+
+    blocks: list[tuple[str, int, int]] = []
+    for r in range(1, min(ws.max_row + 1, 80)):
+        val = ws.cell(r, 1).value
+        if isinstance(val, str):
+            norm = tr_upper(val.strip())
+            if norm in day_set:
+                cap = col_a_merges.get(r, 1)
+                blocks.append((norm, r, cap))
+    return blocks
 
 
 def _expand_day_block(
@@ -59,7 +79,6 @@ def _expand_day_block(
     if extra <= 0:
         return
 
-    # 1. Mevcut birleşik hücre koordinatlarını kaydet ve çöz
     saved_merges: list[tuple[int, int, int, int]] = [
         (m.min_row, m.min_col, m.max_row, m.max_col)
         for m in list(ws.merged_cells.ranges)
@@ -69,11 +88,9 @@ def _expand_day_block(
             start_row=min_r, start_column=min_c, end_row=max_r, end_column=max_c
         )
 
-    # 2. Satırları ekle (insert_at satırından önce araya eklenir)
     template_row = insert_at - 1
     template_height = ws.row_dimensions[template_row].height
 
-    # Aşağıdaki satır yüksekliklerini kaydet
     old_heights = {
         r: ws.row_dimensions[r].height
         for r in range(insert_at, ws.max_row + 1)
@@ -82,7 +99,6 @@ def _expand_day_block(
 
     ws.insert_rows(insert_at, amount=extra)
 
-    # Eklenen satırlara stil ve yükseklik kopyala, kayan satırların yüksekliklerini güncelle
     for offset in range(extra):
         r = insert_at + offset
         if template_height is not None:
@@ -93,7 +109,6 @@ def _expand_day_block(
     for old_r, h in old_heights.items():
         ws.row_dimensions[old_r + extra].height = h
 
-    # 3. Birleşik hücreleri güncelle
     updated_merges: list[tuple[int, int, int, int]] = []
     for min_r, min_c, max_r, max_c in saved_merges:
         if max_r < insert_at:
@@ -101,10 +116,8 @@ def _expand_day_block(
         elif min_r >= insert_at:
             updated_merges.append((min_r + extra, min_c, max_r + extra, max_c))
         else:
-            # insert_at bu birleşik bloğun tam içinde (örn. PAZARTESİ A5:A11)
             updated_merges.append((min_r, min_c, max_r + extra, max_c))
 
-    # Yeni eklenen satırlardaki satır içi birleştirmeler (ör. haftalik_bos C:E)
     if extra_row_merges:
         for offset in range(extra):
             r = insert_at + offset
@@ -127,7 +140,6 @@ def export_single_week_excel(
     wb = openpyxl.load_workbook(template_path)
     ws = wb.active
 
-    # Başlık (A1:J3 birleşik alanında logoların ortasında görünür)
     header_parts = [p.strip() for p in (student_name, week_title) if p and p.strip()]
     if header_parts:
         ws["A1"].value = tr_upper(" - ".join(header_parts)) + "\nHAFTALIK DERS ÇALIŞMA PROGRAMI"
@@ -142,16 +154,7 @@ def export_single_week_excel(
             ws.title = "__temp_sheet__"
             ws.title = target_title
 
-    # Orijinal gün blokları: (gün_adı, başlangıç_satırı, satır_kapasitesi)
-    base_blocks = [
-        ("PAZARTESİ", 5, 7),
-        ("SALI", 12, 6),
-        ("ÇARŞAMBA", 18, 6),
-        ("PERŞEMBE", 24, 6),
-        ("CUMA", 30, 6),
-        ("CUMARTESİ", 36, 7),
-        ("PAZAR", 43, 7),
-    ]
+    base_blocks = _detect_day_blocks(ws)
 
     shift = 0
     for day, base_start, base_cap in base_blocks:
@@ -159,14 +162,13 @@ def export_single_week_excel(
         tasks = week_plan.get(day, [])
         extra = max(0, len(tasks) - base_cap)
         if extra > 0:
-            # Blok içindeki 2. satırdan sonra araya ekle (üst/alt kalın kenarlıkları korumak için)
-            insert_at = start_row + 2
+            insert_at = start_row + min(2, base_cap)
             _expand_day_block(
                 ws,
                 insert_at=insert_at,
                 extra=extra,
                 max_col=10,
-                extra_row_merges=[(3, 5)],  # C:E birleştirmesi
+                extra_row_merges=[(3, 5)],
             )
             shift += extra
 
@@ -187,9 +189,10 @@ def export_single_week_excel(
                 ws.cell(r, 3).value = None
                 ws.cell(r, 6).value = None
 
-        # Sağdaki TOPLAM ÇÖZÜLEN SORU S. (J sütunu) için formül
         end_row = start_row + total_rows - 1
-        ws.cell(start_row, 10).value = f"=IF(SUM(G{start_row}:G{end_row})>0,SUM(G{start_row}:G{end_row}),\"\")"
+        ws.cell(start_row, 10).value = (
+            f'=IF(SUM(G{start_row}:G{end_row})>0,SUM(G{start_row}:G{end_row}),"")'
+        )
 
     buf = io.BytesIO()
     wb.save(buf)
@@ -206,23 +209,12 @@ def export_compact_four_weeks_excel(
     """Ders_Calisma_Programi_Kompakt_Sablon.xlsx (4 hafta) şablonunu doldurur."""
     wb = openpyxl.load_workbook(template_path)
 
-    # En az 4 hafta olacak şekilde tamamla
     padded_weeks = list(weeks[:4]) + [{} for _ in range(max(0, 4 - len(weeks)))]
     labels = list(week_labels or []) + [""] * 4
 
     sheet_pairs = [
         ("1-2. Hafta Programı", 0, 1, "1. HAFTA", "2. HAFTA"),
         ("3-4. Hafta Programı", 2, 3, "3. HAFTA", "4. HAFTA"),
-    ]
-
-    base_blocks = [
-        ("PAZARTESİ", 5, 7),
-        ("SALI", 12, 6),
-        ("ÇARŞAMBA", 18, 6),
-        ("PERŞEMBE", 24, 6),
-        ("CUMA", 30, 6),
-        ("CUMARTESİ", 36, 7),
-        ("PAZAR", 43, 6),
     ]
 
     for sheet_name, left_idx, right_idx, default_left_lbl, default_right_lbl in sheet_pairs:
@@ -243,6 +235,9 @@ def export_compact_four_weeks_excel(
         left_plan = padded_weeks[left_idx]
         right_plan = padded_weeks[right_idx]
 
+        base_blocks = _detect_day_blocks(ws)
+        base_last_day_row = max(start + cap - 1 for _, start, cap in base_blocks)
+
         shift = 0
         for day, base_start, base_cap in base_blocks:
             start_row = base_start + shift
@@ -253,7 +248,7 @@ def export_compact_four_weeks_excel(
             if extra > 0:
                 _expand_day_block(
                     ws,
-                    insert_at=start_row + 2,
+                    insert_at=start_row + min(2, base_cap),
                     extra=extra,
                     max_col=17,
                     extra_row_merges=None,
@@ -263,7 +258,6 @@ def export_compact_four_weeks_excel(
             total_rows = base_cap + extra
             for idx in range(total_rows):
                 r = start_row + idx
-                # Sol hafta: B=Ders, C=Konu, D=Hedef Soru
                 if idx < len(l_tasks):
                     lt = l_tasks[idx]
                     ws.cell(r, 2).value = lt.ders
@@ -278,7 +272,6 @@ def export_compact_four_weeks_excel(
                     ws.cell(r, 3).value = None
                     ws.cell(r, 4).value = None
 
-                # Sağ hafta: K=Ders, L=Konu, M=Hedef Soru
                 if idx < len(r_tasks):
                     rt = r_tasks[idx]
                     ws.cell(r, 11).value = rt.ders
@@ -294,14 +287,87 @@ def export_compact_four_weeks_excel(
                     ws.cell(r, 13).value = None
 
             end_row = start_row + total_rows - 1
-            ws.cell(start_row, 8).value = f"=IF(SUM(E{start_row}:E{end_row})>0,SUM(E{start_row}:E{end_row}),\"\")"
-            ws.cell(start_row, 17).value = f"=IF(SUM(N{start_row}:N{end_row})>0,SUM(N{start_row}:N{end_row}),\"\")"
+            ws.cell(start_row, 8).value = (
+                f'=IF(SUM(E{start_row}:E{end_row})>0,SUM(E{start_row}:E{end_row}),"")'
+            )
+            ws.cell(start_row, 17).value = (
+                f'=IF(SUM(N{start_row}:N{end_row})>0,SUM(N{start_row}:N{end_row}),"")'
+            )
 
-        # Alt toplam satırı (49 + shift)
-        total_row = 49 + shift
-        last_data_row = total_row - 1
+        last_data_row = base_last_day_row + shift
+        total_row = last_data_row + 1
         ws.cell(total_row, 4).value = f"=SUM(D5:D{last_data_row})"
         ws.cell(total_row, 13).value = f"=SUM(M5:M{last_data_row})"
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf.getvalue()
+
+
+def export_monthly_matrix_excel(
+    matrix_weeks: list[dict[str, dict]],
+    student_name: str = "",
+    week_labels: list[str] | None = None,
+    template_path: Path = TEMPLATES_DIR / "aylik_matris.xlsx",
+) -> bytes:
+    """AYLIK KAZANIM VE GELİŞİM MATRİSİ.xlsx şablonunu doldurur."""
+    wb = openpyxl.load_workbook(template_path)
+    ws = wb.active
+
+    if student_name.strip():
+        ws["A1"].value = (
+            f"{tr_upper(student_name.strip())} - 4 HAFTALIK DERS ÇALIŞMA ÇİZELGESİ"
+        )
+
+    labels = list(week_labels or []) + ["", "", "", ""]
+    week_header_cols = [(2, "1. HAFTA"), (4, "2. HAFTA"), (6, "3. HAFTA"), (8, "4. HAFTA")]
+    for idx, (col, default_hdr) in enumerate(week_header_cols):
+        lbl = labels[idx].strip()
+        if lbl and tr_upper(lbl) != default_hdr:
+            ws.cell(2, col).value = f"{default_hdr} ({lbl})"
+
+    # Şablondaki ders satırlarını tespit et (R03..R24)
+    subject_rows: dict[str, int] = {}
+    for r in range(3, ws.max_row + 1):
+        val = ws.cell(r, 1).value
+        if isinstance(val, str):
+            norm = tr_upper(val.strip())
+            if norm in MATRIX_SUBJECTS:
+                subject_rows[norm] = r
+
+    padded_weeks = list(matrix_weeks[:4]) + [{} for _ in range(max(0, 4 - len(matrix_weeks)))]
+    week_cols = [(2, 3), (4, 5), (6, 7), (8, 9)]  # (konu_col, soru_col)
+
+    for subj, r in subject_rows.items():
+        max_lines = 1
+        for w_idx, (topic_col, q_col) in enumerate(week_cols):
+            entry = padded_weeks[w_idx].get(subj, {})
+            topics = [str(t).strip() for t in entry.get("topics", []) if str(t).strip()]
+            text = "\n".join(topics) if topics else None
+            ws.cell(r, topic_col).value = text
+            if text:
+                lines = sum(max(1, math.ceil(len(line) / 30)) for line in text.split("\n"))
+                max_lines = max(max_lines, lines)
+
+            q_val = entry.get("target_questions")
+            ws.cell(r, q_col).value = int(q_val) if q_val and int(q_val) > 0 else None
+
+        # Satır toplam hedef formülü (J sütunu)
+        ws.cell(r, 10).value = f'=IF(SUM(C{r},E{r},G{r},I{r})>0,SUM(C{r},E{r},G{r},I{r}),"")'
+        if max_lines > 1:
+            ws.row_dimensions[r].height = max(19.5, 13 * max_lines + 6)
+
+    # R25 alt toplam formülleri (eğer 25. satır toplam satırıysa)
+    if subject_rows:
+        first_r = min(subject_rows.values())
+        last_r = max(subject_rows.values())
+        total_r = last_r + 1
+        for col_letter, col_idx in [("C", 3), ("E", 5), ("G", 7), ("I", 9), ("J", 10)]:
+            ws.cell(total_r, col_idx).value = (
+                f'=IF(SUM({col_letter}{first_r}:{col_letter}{last_r})>0,'
+                f'SUM({col_letter}{first_r}:{col_letter}{last_r}),"")'
+            )
 
     buf = io.BytesIO()
     wb.save(buf)

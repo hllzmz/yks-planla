@@ -25,6 +25,81 @@ STUDY_TYPES = [
     "Deneme",
 ]
 
+MATRIX_SUBJECTS = [
+    "TÜRKÇE",
+    "TEMEL MATEMATİK",
+    "TYT GEOMETRİ",
+    "TYT FİZİK",
+    "TYT KİMYA",
+    "TYT BİYOLOJİ",
+    "TYT TARİH",
+    "TYT COĞRAFYA",
+    "TYT FELSEFE",
+    "TYT DİN KÜLTÜRÜ",
+    "AYT MATEMATİK",
+    "AYT GEOMETRİ",
+    "AYT FİZİK",
+    "AYT KİMYA",
+    "AYT BİYOLOJİ",
+    "TÜRK DİLİ VE EDEBİYATI",
+    "AYT TARİH 1",
+    "AYT TARİH 2",
+    "AYT COĞRAFYA 1",
+    "AYT COĞRAFYA 2",
+    "AYT FELSEFE GRUBU",
+    "AYT DİN KÜLTÜRÜ",
+]
+
+
+def map_to_matrix_subject(
+    session: str, ders: str, preferred_subject: str | None = None
+) -> str | None:
+    """TYT/AYT ders adını Aylık Gelişim Matrisi satırına eşler."""
+    s = session.strip().upper()
+    d = ders.strip()
+    if s == "TYT":
+        tyt_map = {
+            "Türkçe": "TÜRKÇE",
+            "Matematik": "TEMEL MATEMATİK",
+            "Geometri": "TYT GEOMETRİ",
+            "Fizik": "TYT FİZİK",
+            "Kimya": "TYT KİMYA",
+            "Biyoloji": "TYT BİYOLOJİ",
+            "Tarih": "TYT TARİH",
+            "Coğrafya": "TYT COĞRAFYA",
+            "Felsefe": "TYT FELSEFE",
+            "Din Kültürü": "TYT DİN KÜLTÜRÜ",
+        }
+        return tyt_map.get(d)
+    if s == "AYT":
+        if d == "Tarih":
+            return (
+                preferred_subject
+                if preferred_subject in ("AYT TARİH 1", "AYT TARİH 2")
+                else "AYT TARİH 1"
+            )
+        if d == "Coğrafya":
+            return (
+                preferred_subject
+                if preferred_subject in ("AYT COĞRAFYA 1", "AYT COĞRAFYA 2")
+                else "AYT COĞRAFYA 1"
+            )
+        ayt_map = {
+            "Matematik": "AYT MATEMATİK",
+            "Geometri": "AYT GEOMETRİ",
+            "Fizik": "AYT FİZİK",
+            "Kimya": "AYT KİMYA",
+            "Biyoloji": "AYT BİYOLOJİ",
+            "Türk Dili ve Edebiyatı": "TÜRK DİLİ VE EDEBİYATI",
+            "Felsefe": "AYT FELSEFE GRUBU",
+            "Mantık": "AYT FELSEFE GRUBU",
+            "Psikoloji": "AYT FELSEFE GRUBU",
+            "Sosyoloji": "AYT FELSEFE GRUBU",
+            "Din Kültürü": "AYT DİN KÜLTÜRÜ",
+        }
+        return ayt_map.get(d)
+    return preferred_subject if preferred_subject in MATRIX_SUBJECTS else None
+
 
 def tr_lower(text: str) -> str:
     """Türkçe karakter duyarlı küçük harf dönüşümü."""

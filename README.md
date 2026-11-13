@@ -13,9 +13,10 @@
 - **Tıkla-Ata Hızlı Planlama:** Sol tarafta **Aktif Gün** seçip sağdaki müfredat ağacından **`+ Ekle`** (veya tüm üniteyi eklemek için **`+ Üniteyi Ekle`**) butonlarına basarak konuları anında haftaya yerleştirme.
 - **Rutin Dağıtıcı:** *"20 Paragraf"*, *"20 Problem"*, *"20 Geometri"* veya özel rutinleri seçili günlere tek tıkla dağıtma.
 - **Otomatik Taslak Kaydı:** Çalışmalarınız tarayıcıda (`localStorage`) otomatik saklanır; sayfa yenilense bile kaybolmaz.
-- **İki Farklı Excel Export Formatı:**
+- **Üç Farklı Excel Export Formatı:**
   - **Tek Haftalık Şablon** (`templates/haftalik_bos.xlsx`)
   - **4 Haftalık Kompakt Şablon** (`templates/kompakt_sablon.xlsx` — `1-2. Hafta Programı` ve `3-4. Hafta Programı` sekmeleriyle)
+  - **Aylık Gelişim Matrisi** (`templates/aylik_matris.xlsx` — 22 ders satırı üzerinde 4 haftalık konu ve soru hedefi matrisi)
   - Bir güne şablondaki boş satır kapasitesinden fazla görev eklense dahi birleşik hücreleri, kenarlıkları ve toplam formüllerini otomatik korur.
 
 ## Kurulum ve Çalıştırma
@@ -36,8 +37,8 @@ Ardından tarayıcınızda `http://localhost:8080` adresini açın.
 
 - `app.py`: FastAPI tabanlı Python arka uç ve API sunucusu
 - `web/index.html`: Harici bağımlılığı olmayan, tek dosyalık web arayüzü
-- `curriculum.py`: 2027 & 2028 müfredat yükleme ve Türkçe duyarlı filtreleme
+- `curriculum.py`: 2027 & 2028 müfredat yükleme, Türkçe duyarlı filtreleme ve matris ders eşleme
 - `excel_exporter.py`: `openpyxl` tabanlı şablon doldurma ve dinamik satır genişletme motoru
 - `data/`: JSON formatında gömülü 2027 ve 2028 müfredat verileri
-- `templates/`: Orijinal tek haftalık ve 4 haftalık kompakt Excel şablonları
+- `templates/`: Orijinal tek haftalık, 4 haftalık kompakt ve aylık gelişim matrisi Excel şablonları
 - `scripts/import_from_excel.py`: Kaynak Excel müfredat dosyalarından `data/*.json` üreten yardımcı script
