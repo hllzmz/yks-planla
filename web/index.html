@@ -1503,7 +1503,7 @@
         <div class="field">
           <label>Günler</label>
           <div style="display:flex; gap:10px; flex-wrap:wrap; font-size:12.5px">
-            ${DAYS.map(d => `<label style="display:inline-flex; align-items:center; gap:4px; font-weight:500"><input type="checkbox" class="r-day" value="${d}" ${d !== "PAZAR" ? "checked" : ""} /> ${d}</label>`).join("")}
+            ${DAYS.map(d => `<label style="display:inline-flex; align-items:center; gap:4px; font-weight:500"><input type="checkbox" class="r-day" value="${d}" checked /> ${d}</label>`).join("")}
           </div>
           <div style="display:flex; gap:6px; margin-top:6px">
             <button class="btn btn-ghost btn-xs" onclick="setRoutineDays(false)">Hafta İçi</button>
