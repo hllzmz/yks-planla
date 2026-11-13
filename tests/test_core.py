@@ -41,7 +41,7 @@ class TestCurriculumAndExporter(unittest.TestCase):
         ]
 
         raw = export_single_week_excel(
-            plan, student_name="Zeynep Kaya", week_title="16 Şubat"
+            plan, student_name="Zeynep Kaya", week_title="16 Şubat", shrink_empty=False
         )
         wb = openpyxl.load_workbook(io.BytesIO(raw))
         ws = wb.active
@@ -54,7 +54,7 @@ class TestCurriculumAndExporter(unittest.TestCase):
         self.assertEqual(ws["B43"].value, "Genel Deneme")  # 3 satır kaymış Pazar başlangıcı (40+3=43)
 
         raw_default = export_single_week_excel(
-            plan, student_name="Halil Üzmez", week_title="1. Hafta"
+            plan, student_name="Halil Üzmez", week_title="1. Hafta", shrink_empty=False
         )
         ws_def = openpyxl.load_workbook(io.BytesIO(raw_default)).active
         self.assertEqual(ws_def["A1"].value, "HALİL ÜZMEZ - HAFTALIK DERS ÇALIŞMA PROGRAMI")
@@ -75,6 +75,7 @@ class TestCurriculumAndExporter(unittest.TestCase):
             [w1, {}, w3, {}],
             student_name="Ali Demir",
             week_labels=["16 Şub", "23 Şub", "2 Mar", "9 Mar"],
+            shrink_empty=False,
         )
         wb = openpyxl.load_workbook(io.BytesIO(raw))
         self.assertEqual(wb.sheetnames, ["1-2. Hafta Programı", "3-4. Hafta Programı"])
@@ -90,6 +91,58 @@ class TestCurriculumAndExporter(unittest.TestCase):
         # 3-4. Hafta taban toplam satırı 47, Cuma 2 satır uzayınca 49 olmalı
         self.assertEqual(ws34["D49"].value, "=SUM(D5:D48)")
         self.assertEqual(ws34["M49"].value, "=SUM(M5:M48)")
+
+    def test_shrink_empty_rows_single_and_compact(self) -> None:
+        # Tek haftalık: Pazartesi 3 görev, Salı 0 görev, Çarşamba 8 görev, diğerleri 1 görev
+        plan = {day: [] for day in DAYS_OF_WEEK}
+        plan["PAZARTESİ"] = [
+            ScheduleTask("TYT Türkçe", f"Konu {i}", "Konu", 20) for i in range(1, 4)
+        ]
+        plan["ÇARŞAMBA"] = [
+            ScheduleTask("TYT Matematik", f"Mat {i}", "Soru Çözümü", 30) for i in range(1, 9)
+        ]
+        plan["PAZAR"] = [ScheduleTask("Genel Deneme", "TYT Deneme", "Deneme", 120)]
+
+        raw_single = export_single_week_excel(
+            plan, student_name="Halil Üzmez", week_title="", shrink_empty=True
+        )
+        ws = openpyxl.load_workbook(io.BytesIO(raw_single)).active
+        # Pazartesi: 3..5 (3 satır), alt kenarlık medium olmalı
+        self.assertEqual(ws["A3"].value, "PAZARTESİ")
+        self.assertEqual(ws["B5"].value, "TYT Türkçe")
+        self.assertEqual(ws["B5"].border.bottom.style, "medium")
+        # Salı (0 görev -> 1 satır): R06
+        self.assertEqual(ws["A6"].value, "SALI")
+        # Çarşamba (8 görev): R07..R14
+        self.assertEqual(ws["A7"].value, "ÇARŞAMBA")
+        self.assertEqual(ws["B14"].value, "TYT Matematik")
+        # Perşembe (0->1): R15, Cuma (0->1): R16, Cumartesi (0->1): R17, Pazar (1): R18
+        self.assertEqual(ws["A18"].value, "PAZAR")
+        self.assertEqual(ws["B18"].value, "Genel Deneme")
+        self.assertEqual(ws["B18"].border.bottom.style, "medium")
+        # Dikey gün adları sığması için tek satırlı Pazartesi/Pazar yüksekliği genişletilmiş olmalı
+        self.assertGreater(ws.row_dimensions[6].height or 0, 25)
+        self.assertGreater(ws.row_dimensions[18].height or 0, 30)
+
+        # Kompakt 4 hafta: 1. hafta Pazartesi 3 görev, 2. hafta Salı 2 görev, diğer günler boş (1 satır)
+        w1 = {day: [] for day in DAYS_OF_WEEK}
+        w1["PAZARTESİ"] = [ScheduleTask("TYT Türkçe", f"P{i}", "Soru Çözümü", 20) for i in range(1, 4)]
+        w2 = {day: [] for day in DAYS_OF_WEEK}
+        w2["SALI"] = [ScheduleTask("TYT Fizik", f"F{i}", "Konu", 15) for i in range(1, 3)]
+        raw_compact = export_compact_four_weeks_excel(
+            [w1, w2, {}, {}], student_name="Ali Demir", shrink_empty=True
+        )
+        wb_c = openpyxl.load_workbook(io.BytesIO(raw_compact))
+        ws12 = wb_c["1-2. Hafta Programı"]
+        # Pazartesi 5..7 (3), Salı 8..9 (2), Çar..Paz 10..14 (5x1=5) -> son veri satırı 14, toplam 15
+        self.assertEqual(ws12["A5"].value, "PAZARTESİ")
+        self.assertEqual(ws12["A8"].value, "SALI")
+        self.assertEqual(ws12["L9"].value, "F2 [Konu]")
+        self.assertEqual(ws12["A14"].value, "PAZAR")
+        self.assertEqual(ws12["A15"].value, "1. HAFTA TOPLAM HEDEFLENEN SORU SAYISI")
+        self.assertEqual(ws12["D15"].value, "=SUM(D5:D14)")
+        self.assertEqual(ws12["M15"].value, "=SUM(M5:M14)")
+
 
     def test_monthly_matrix_export_and_mapping(self) -> None:
         self.assertEqual(map_to_matrix_subject("TYT", "Matematik"), "TEMEL MATEMATİK")

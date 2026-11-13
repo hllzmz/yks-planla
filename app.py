@@ -54,6 +54,7 @@ class ExportPayload(BaseModel):
     )
     weeks: list[dict[str, list[TaskPayload]]] = Field(default_factory=list)
     monthly_matrix: list[dict[str, MatrixEntryPayload]] = Field(default_factory=list)
+    shrink_empty: bool = True
 
 
 def safe_filename(name: str) -> str:
@@ -166,6 +167,7 @@ def export_excel(payload: ExportPayload) -> Response:
             week_plan=week0,
             student_name=payload.student_name,
             week_title=raw_lbl,
+            shrink_empty=payload.shrink_empty,
         )
         if raw_lbl and raw_lbl.lower() != "1. hafta":
             w_part = safe_filename(raw_lbl)
@@ -200,6 +202,7 @@ def export_excel(payload: ExportPayload) -> Response:
             weeks=weeks_conv,
             student_name=payload.student_name,
             week_labels=labels[:4],
+            shrink_empty=payload.shrink_empty,
         )
         filename = f"{base}_4_Haftalik_Kompakt_Program.xlsx"
 

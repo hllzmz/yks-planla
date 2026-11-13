@@ -395,6 +395,10 @@
         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap">
           <label style="font-size:12px; color:#64748b; font-weight:600">Hafta Başlığı:</label>
           <input id="weekLabelInput" class="input" style="width:185px" placeholder="Örn: 16 Şubat Haftası" />
+          <label id="shrinkEmptyWrap" style="display:inline-flex; align-items:center; gap:5px; font-size:12px; color:#475569; font-weight:600; cursor:pointer; margin-left:4px" title="Excel çıktısında gün içindeki kullanılmayan boş satırları otomatik daraltır">
+            <input id="shrinkEmptyToggle" type="checkbox" checked />
+            Boş satırları daralt
+          </label>
         </div>
         <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap">
           <span class="badge badge-primary" id="activeDayBadge">Aktif Gün: PAZARTESİ</span>
@@ -511,6 +515,7 @@
       if (!obj.active_matrix_subject || !MATRIX_SUBJECTS.includes(obj.active_matrix_subject)) {
         obj.active_matrix_subject = "TÜRKÇE";
       }
+      obj.shrink_empty = obj.shrink_empty !== false;
       return obj;
     }
 
@@ -639,6 +644,10 @@
 
       const btnRoutine = document.getElementById("btnRoutine");
       if (btnRoutine) btnRoutine.style.display = isMonthly ? "none" : "inline-flex";
+      const shrinkWrap = document.getElementById("shrinkEmptyWrap");
+      const shrinkToggle = document.getElementById("shrinkEmptyToggle");
+      if (shrinkWrap) shrinkWrap.style.display = isMonthly ? "none" : "inline-flex";
+      if (shrinkToggle) shrinkToggle.checked = state.shrink_empty !== false;
 
       // 4 Haftalık Sekmeler (Kompakt + Aylık Matris)
       const weekTabs = document.getElementById("weekTabs");
@@ -1390,16 +1399,19 @@
                         ]
                     weeks_conv.append(w_dict)
 
+                shrink_empty = bool(payload.get("shrink_empty", True))
                 if mode == "single":
                     return export_single_week_excel(
                         week_plan=weeks_conv[0] if weeks_conv else {},
                         student_name=payload.get("student_name", ""),
                         week_title=labels[0] if labels else "",
+                        shrink_empty=shrink_empty,
                     )
                 return export_compact_four_weeks_excel(
                     weeks=weeks_conv,
                     student_name=payload.get("student_name", ""),
                     week_labels=labels,
+                    shrink_empty=shrink_empty,
                 )
           `);
           return pyodide;
@@ -1438,6 +1450,7 @@
         week_labels: state.week_labels,
         weeks: state.weeks,
         monthly_matrix: state.monthly_matrix,
+        shrink_empty: state.shrink_empty !== false,
       };
       const baseName = safeFilePart(state.student_name, "Ogrenci");
       const rawSingleLbl = String(state.week_labels[0] || "").trim();
@@ -1500,6 +1513,10 @@
     });
     document.getElementById("weekLabelInput").addEventListener("input", (e) => {
       state.week_labels[currentWeekIdx()] = e.target.value;
+      saveState();
+    });
+    document.getElementById("shrinkEmptyToggle").addEventListener("change", (e) => {
+      state.shrink_empty = Boolean(e.target.checked);
       saveState();
     });
 

@@ -11,6 +11,7 @@ from pathlib import Path
 
 import openpyxl
 from openpyxl.cell.cell import Cell
+from openpyxl.styles import Border
 
 from curriculum import DAYS_OF_WEEK, MATRIX_SUBJECTS, tr_upper
 
@@ -129,11 +130,99 @@ def _expand_day_block(
         )
 
 
+def _shrink_day_block(
+    ws,
+    start_row: int,
+    base_cap: int,
+    target_rows: int,
+    max_col: int,
+) -> int:
+    """Gün blokundaki kullanılmayan alt satırları siler, alt kenarlığı ve birleşik hücreleri korur."""
+    if target_rows >= base_cap or target_rows < 1:
+        return 0
+
+    remove_count = base_cap - target_rows
+    base_end = start_row + base_cap - 1
+    new_end = start_row + target_rows - 1
+    delete_from = new_end + 1
+
+    # Silinecek son satırın alt kenarlığını yeni son satıra aktar
+    for col in range(1, max_col + 1):
+        src_border = ws.cell(base_end, col).border
+        dst_cell = ws.cell(new_end, col)
+        dst_border = copy(dst_cell.border) if dst_cell.has_style else Border()
+        dst_border.bottom = (
+            copy(src_border.bottom) if src_border and src_border.bottom else None
+        )
+        dst_cell.border = dst_border
+
+    saved_merges: list[tuple[int, int, int, int]] = [
+        (m.min_row, m.min_col, m.max_row, m.max_col)
+        for m in list(ws.merged_cells.ranges)
+    ]
+    for min_r, min_c, max_r, max_c in saved_merges:
+        ws.unmerge_cells(
+            start_row=min_r, start_column=min_c, end_row=max_r, end_column=max_c
+        )
+
+    old_heights = {
+        r: ws.row_dimensions[r].height
+        for r in range(base_end + 1, ws.max_row + 1)
+        if ws.row_dimensions[r].height is not None
+    }
+    for r in range(delete_from, max(old_heights.keys(), default=base_end) + 1):
+        if r in ws.row_dimensions:
+            ws.row_dimensions[r].height = None
+
+    ws.delete_rows(delete_from, amount=remove_count)
+
+    for old_r, h in old_heights.items():
+        ws.row_dimensions[old_r - remove_count].height = h
+
+    for min_r, min_c, max_r, max_c in saved_merges:
+        if max_r < delete_from:
+            new_min_r, new_max_r = min_r, max_r
+        elif min_r > base_end:
+            new_min_r, new_max_r = min_r - remove_count, max_r - remove_count
+        elif min_r >= delete_from and max_r <= base_end:
+            # Silinen aralıktaki satır içi birleşmeler (örn: C5:E5)
+            continue
+        else:
+            # Gün blokunu dikey kapsayan birleşme (örn: A3:A8, J3:J8)
+            new_min_r, new_max_r = min_r, max(min_r, max_r - remove_count)
+
+        if new_max_r > new_min_r or max_c > min_c:
+            ws.merge_cells(
+                start_row=new_min_r,
+                start_column=min_c,
+                end_row=new_max_r,
+                end_column=max_c,
+            )
+
+    return remove_count
+
+
+def _ensure_day_block_height(ws, start_row: int, total_rows: int, day: str) -> None:
+    """Dikey gün adının kırpılmaması için daraltılmış blok yüksekliğini dengeler."""
+    if total_rows <= 0:
+        return
+    min_block_height = len(day) * 5.6 + 4.0
+    current_heights = [
+        ws.row_dimensions[r].height or 19.5
+        for r in range(start_row, start_row + total_rows)
+    ]
+    if sum(current_heights) < min_block_height:
+        per_row = round(min_block_height / total_rows, 2)
+        for idx, r in enumerate(range(start_row, start_row + total_rows)):
+            ws.row_dimensions[r].height = max(current_heights[idx], per_row)
+
+
 def export_single_week_excel(
     week_plan: dict[str, list[ScheduleTask]],
     student_name: str = "",
     week_title: str = "",
     template_path: Path = TEMPLATES_DIR / "haftalik_bos.xlsx",
+    shrink_empty: bool = True,
 ) -> bytes:
     """HAFTALIK BOŞ DERS PROGRAMI.xlsx şablonunu doldurur ve bytes olarak döner."""
     wb = openpyxl.load_workbook(template_path)
@@ -161,7 +250,8 @@ def export_single_week_excel(
     for day, base_start, base_cap in base_blocks:
         start_row = base_start + shift
         tasks = week_plan.get(day, [])
-        extra = max(0, len(tasks) - base_cap)
+        needed = max(1, len(tasks))
+        extra = max(0, needed - base_cap)
         if extra > 0:
             insert_at = start_row + min(2, base_cap)
             _expand_day_block(
@@ -172,8 +262,21 @@ def export_single_week_excel(
                 extra_row_merges=[(3, 5)],
             )
             shift += extra
+            total_rows = base_cap + extra
+        elif shrink_empty and needed < base_cap:
+            removed = _shrink_day_block(
+                ws,
+                start_row=start_row,
+                base_cap=base_cap,
+                target_rows=needed,
+                max_col=10,
+            )
+            shift -= removed
+            total_rows = needed
+            _ensure_day_block_height(ws, start_row, total_rows, day)
+        else:
+            total_rows = base_cap
 
-        total_rows = base_cap + extra
         for idx in range(total_rows):
             r = start_row + idx
             if idx < len(tasks):
@@ -206,6 +309,7 @@ def export_compact_four_weeks_excel(
     student_name: str = "",
     week_labels: list[str] | None = None,
     template_path: Path = TEMPLATES_DIR / "kompakt_sablon.xlsx",
+    shrink_empty: bool = True,
 ) -> bytes:
     """Ders_Calisma_Programi_Kompakt_Sablon.xlsx (4 hafta) şablonunu doldurur."""
     wb = openpyxl.load_workbook(template_path)
@@ -248,7 +352,7 @@ def export_compact_four_weeks_excel(
             start_row = base_start + shift
             l_tasks = left_plan.get(day, [])
             r_tasks = right_plan.get(day, [])
-            needed = max(len(l_tasks), len(r_tasks))
+            needed = max(1, len(l_tasks), len(r_tasks))
             extra = max(0, needed - base_cap)
             if extra > 0:
                 _expand_day_block(
@@ -259,8 +363,21 @@ def export_compact_four_weeks_excel(
                     extra_row_merges=None,
                 )
                 shift += extra
+                total_rows = base_cap + extra
+            elif shrink_empty and needed < base_cap:
+                removed = _shrink_day_block(
+                    ws,
+                    start_row=start_row,
+                    base_cap=base_cap,
+                    target_rows=needed,
+                    max_col=17,
+                )
+                shift -= removed
+                total_rows = needed
+                _ensure_day_block_height(ws, start_row, total_rows, day)
+            else:
+                total_rows = base_cap
 
-            total_rows = base_cap + extra
             for idx in range(total_rows):
                 r = start_row + idx
                 if idx < len(l_tasks):
