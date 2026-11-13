@@ -394,7 +394,10 @@
       <div class="card summary-bar">
         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap">
           <label style="font-size:12px; color:#64748b; font-weight:600">Hafta Başlığı:</label>
-          <input id="weekLabelInput" class="input" style="width:185px" placeholder="Örn: 16 Şubat Haftası" />
+          <input id="weekLabelInput" class="input" style="width:185px" placeholder="Örn: 16 Şubat" />
+          <input id="weekDatePicker" type="date" style="position:absolute; opacity:0; width:0; height:0; pointer-events:none" tabindex="-1" />
+          <button type="button" class="btn btn-outline btn-xs" id="btnPickWeekDate" title="Takvimden tarih seç (1. haftada diğer haftaları +7 gün doldurur)">📅</button>
+          <button type="button" class="btn btn-outline btn-xs" id="btnFillWeeks" title="1. hafta tarihine göre 2, 3 ve 4. haftaları +7 gün ilerleterek doldurur">↻ +7 Gün</button>
           <label id="shrinkEmptyWrap" style="display:inline-flex; align-items:center; gap:5px; font-size:12px; color:#475569; font-weight:600; cursor:pointer; margin-left:4px" title="Excel çıktısında gün içindeki kullanılmayan boş satırları otomatik daraltır">
             <input id="shrinkEmptyToggle" type="checkbox" checked />
             Boş satırları daralt
@@ -623,8 +626,246 @@
     }
 
     // ------------------------------------------------------------------ //
+    // Otomatik Hafta Tarihi Hesaplama (+7 Gün)
+    // ------------------------------------------------------------------ //
+    const TR_MONTHS_FULL = [
+      "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
+      "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık",
+    ];
+    const TR_MONTHS_SHORT = [
+      "Oca", "Şub", "Mar", "Nis", "May", "Haz",
+      "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara",
+    ];
+    const TR_MONTH_LOOKUP = {
+      ocak: 0, oca: 0,
+      şubat: 1, subat: 1, şub: 1, sub: 1,
+      mart: 2, mar: 2,
+      nisan: 3, nis: 3,
+      mayıs: 4, mayis: 4, may: 4,
+      haziran: 5, haz: 5,
+      temmuz: 6, tem: 6,
+      ağustos: 7, agustos: 7, ağu: 7, agu: 7,
+      eylül: 8, eylul: 8, eyl: 8,
+      ekim: 9, eki: 9,
+      kasım: 10, kasim: 10, kas: 10,
+      aralık: 11, aralik: 11, ara: 11,
+    };
+
+    function lookupTrMonth(token) {
+      const key = trLower(String(token || "").trim());
+      if (!(key in TR_MONTH_LOOKUP)) return null;
+      return { index: TR_MONTH_LOOKUP[key], isShort: key.length === 3 };
+    }
+
+    function inferAcademicYear(monthIdx) {
+      const now = new Date();
+      let y = now.getFullYear();
+      if (monthIdx < now.getMonth() - 2) y += 1;
+      return y;
+    }
+
+    function addDaysLocal(dateObj, days) {
+      return new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate() + days);
+    }
+
+    function formatTrMonthDate(d, isShort, includeYear) {
+      const mName = (isShort ? TR_MONTHS_SHORT : TR_MONTHS_FULL)[d.getMonth()];
+      return `${d.getDate()} ${mName}${includeYear ? " " + d.getFullYear() : ""}`;
+    }
+
+    function buildWeekLabelGenerator(rawText) {
+      const text = String(rawText || "").trim();
+      if (!text) return null;
+
+      // 1) "16-22 Şubat [2026] [Haftası]"
+      let m = text.match(/^(\d{1,2})\s*([-–])\s*(\d{1,2})\s+([A-Za-zÇĞİÖŞÜçğıöşü]+)(?:\s+(\d{4}))?(?:\s+(.+))?$/);
+      if (m) {
+        const d1 = parseInt(m[1], 10), d2 = parseInt(m[3], 10);
+        const dash = m[2];
+        const mInfo = lookupTrMonth(m[4]);
+        if (mInfo && d1 >= 1 && d1 <= 31 && d2 >= 1 && d2 <= 31) {
+          const hasYear = Boolean(m[5]);
+          const year = hasYear ? parseInt(m[5], 10) : inferAcademicYear(mInfo.index);
+          const suffix = m[6] ? ` ${m[6].trim()}` : "";
+          const start = new Date(year, mInfo.index, d1);
+          const end = new Date(year, mInfo.index, d2);
+          return (k) => {
+            const s = addDaysLocal(start, k * 7);
+            const e = addDaysLocal(end, k * 7);
+            if (s.getMonth() === e.getMonth()) {
+              const mName = (mInfo.isShort ? TR_MONTHS_SHORT : TR_MONTHS_FULL)[s.getMonth()];
+              return `${s.getDate()}${dash}${e.getDate()} ${mName}${hasYear ? " " + e.getFullYear() : ""}${suffix}`;
+            }
+            const sPart = formatTrMonthDate(s, mInfo.isShort, hasYear && s.getFullYear() !== e.getFullYear());
+            const ePart = formatTrMonthDate(e, mInfo.isShort, hasYear);
+            return `${sPart} ${dash} ${ePart}${suffix}`;
+          };
+        }
+      }
+
+      // 2) "23 Şubat - 1 Mart [2026] [Haftası]"
+      m = text.match(/^(\d{1,2})\s+([A-Za-zÇĞİÖŞÜçğıöşü]+)(?:\s+(\d{4}))?\s*([-–])\s*(\d{1,2})\s+([A-Za-zÇĞİÖŞÜçğıöşü]+)(?:\s+(\d{4}))?(?:\s+(.+))?$/);
+      if (m) {
+        const d1 = parseInt(m[1], 10), d2 = parseInt(m[5], 10);
+        const m1 = lookupTrMonth(m[2]), m2 = lookupTrMonth(m[6]);
+        if (m1 && m2 && d1 >= 1 && d1 <= 31 && d2 >= 1 && d2 <= 31) {
+          const hasYear = Boolean(m[3] || m[7]);
+          const y1 = m[3] ? parseInt(m[3], 10) : inferAcademicYear(m1.index);
+          const y2 = m[7] ? parseInt(m[7], 10) : (m2.index < m1.index ? y1 + 1 : y1);
+          const isShort = m1.isShort || m2.isShort;
+          const dash = m[4];
+          const suffix = m[8] ? ` ${m[8].trim()}` : "";
+          const start = new Date(y1, m1.index, d1);
+          const end = new Date(y2, m2.index, d2);
+          return (k) => {
+            const s = addDaysLocal(start, k * 7);
+            const e = addDaysLocal(end, k * 7);
+            if (s.getMonth() === e.getMonth()) {
+              const mName = (isShort ? TR_MONTHS_SHORT : TR_MONTHS_FULL)[s.getMonth()];
+              return `${s.getDate()}${dash}${e.getDate()} ${mName}${hasYear ? " " + e.getFullYear() : ""}${suffix}`;
+            }
+            const sPart = formatTrMonthDate(s, isShort, hasYear && s.getFullYear() !== e.getFullYear());
+            const ePart = formatTrMonthDate(e, isShort, hasYear);
+            return `${sPart} ${dash} ${ePart}${suffix}`;
+          };
+        }
+      }
+
+      // 3) "16 Şubat [2026] [Haftası]"
+      m = text.match(/^(\d{1,2})\s+([A-Za-zÇĞİÖŞÜçğıöşü]+)(?:\s+(\d{4}))?(?:\s+(.+))?$/);
+      if (m) {
+        const d1 = parseInt(m[1], 10);
+        const mInfo = lookupTrMonth(m[2]);
+        if (mInfo && d1 >= 1 && d1 <= 31) {
+          const hasYear = Boolean(m[3]);
+          const year = hasYear ? parseInt(m[3], 10) : inferAcademicYear(mInfo.index);
+          const suffix = m[4] ? ` ${m[4].trim()}` : "";
+          const base = new Date(year, mInfo.index, d1);
+          return (k) => formatTrMonthDate(addDaysLocal(base, k * 7), mInfo.isShort, hasYear) + suffix;
+        }
+      }
+
+      // 4) "16.02[.2026] - 22.02[.2026]"
+      m = text.match(/^(\d{1,2})([./])(\d{1,2})(?:\2(\d{2,4}))?\s*([-–])\s*(\d{1,2})\2(\d{1,2})(?:\2(\d{2,4}))?(?:\s+(.+))?$/);
+      if (m) {
+        const sep = m[2], dash = m[5];
+        const d1 = parseInt(m[1], 10), mo1 = parseInt(m[3], 10);
+        const d2 = parseInt(m[6], 10), mo2 = parseInt(m[7], 10);
+        if (mo1 >= 1 && mo1 <= 12 && mo2 >= 1 && mo2 <= 12 && d1 >= 1 && d1 <= 31 && d2 >= 1 && d2 <= 31) {
+          const yearSpec = m[8] || m[4] || "";
+          const hasYear = Boolean(yearSpec);
+          const yBase = hasYear
+            ? (yearSpec.length === 2 ? 2000 + parseInt(yearSpec, 10) : parseInt(yearSpec, 10))
+            : inferAcademicYear(mo1 - 1);
+          const yEnd = m[8]
+            ? (m[8].length === 2 ? 2000 + parseInt(m[8], 10) : parseInt(m[8], 10))
+            : (mo2 < mo1 ? yBase + 1 : yBase);
+          const pad2 = n => String(n).padStart(2, "0");
+          const suffix = m[9] ? ` ${m[9].trim()}` : "";
+          const start = new Date(yBase, mo1 - 1, d1);
+          const end = new Date(yEnd, mo2 - 1, d2);
+          const fmtNum = (dt) => {
+            const yr = hasYear ? (yearSpec.length === 2 ? sep + String(dt.getFullYear()).slice(-2) : sep + dt.getFullYear()) : "";
+            return `${pad2(dt.getDate())}${sep}${pad2(dt.getMonth() + 1)}${yr}`;
+          };
+          return (k) => `${fmtNum(addDaysLocal(start, k * 7))}${dash}${fmtNum(addDaysLocal(end, k * 7))}${suffix}`;
+        }
+      }
+
+      // 5) "16.02[.2026]" veya "16/02[/2026]"
+      m = text.match(/^(\d{1,2})([./])(\d{1,2})(?:\2(\d{2,4}))?(?:\s+(.+))?$/);
+      if (m) {
+        const sep = m[2];
+        const d1 = parseInt(m[1], 10), mo1 = parseInt(m[3], 10);
+        if (mo1 >= 1 && mo1 <= 12 && d1 >= 1 && d1 <= 31) {
+          const yearSpec = m[4] || "";
+          const hasYear = Boolean(yearSpec);
+          const year = hasYear
+            ? (yearSpec.length === 2 ? 2000 + parseInt(yearSpec, 10) : parseInt(yearSpec, 10))
+            : inferAcademicYear(mo1 - 1);
+          const pad2 = n => String(n).padStart(2, "0");
+          const suffix = m[5] ? ` ${m[5].trim()}` : "";
+          const base = new Date(year, mo1 - 1, d1);
+          return (k) => {
+            const dt = addDaysLocal(base, k * 7);
+            const yr = hasYear ? (yearSpec.length === 2 ? sep + String(dt.getFullYear()).slice(-2) : sep + dt.getFullYear()) : "";
+            return `${pad2(dt.getDate())}${sep}${pad2(dt.getMonth() + 1)}${yr}${suffix}`;
+          };
+        }
+      }
+
+      // 6) "5. Hafta" -> "6. Hafta", "7. Hafta", "8. Hafta"
+      m = text.match(/^(\d{1,2})\.\s*(hafta)(?:\s+(.+))?$/i);
+      if (m) {
+        const num = parseInt(m[1], 10);
+        const word = m[2];
+        const suffix = m[3] ? ` ${m[3].trim()}` : "";
+        return (k) => `${num + k}. ${word}${suffix}`;
+      }
+
+      return null;
+    }
+
+    function syncFollowingWeekLabels(prevWeek0, force = false) {
+      const gen = buildWeekLabelGenerator(state.week_labels[0]);
+      const prevGen = buildWeekLabelGenerator(prevWeek0);
+      let changed = false;
+      for (let i = 1; i < 4; i++) {
+        const cur = (state.week_labels[i] || "").trim();
+        const isDefault = !cur || cur === `${i + 1}. Hafta`;
+        const wasAuto = Boolean(prevGen && cur === prevGen(i));
+        if (force || isDefault || wasAuto) {
+          if (gen) {
+            const nextVal = gen(i);
+            if (state.week_labels[i] !== nextVal) {
+              state.week_labels[i] = nextVal;
+              changed = true;
+            }
+          } else if (wasAuto || !String(state.week_labels[0] || "").trim()) {
+            const defVal = `${i + 1}. Hafta`;
+            if (state.week_labels[i] !== defVal) {
+              state.week_labels[i] = defVal;
+              changed = true;
+            }
+          }
+        }
+      }
+      return changed;
+    }
+
+    // ------------------------------------------------------------------ //
     // Sol Panel Çizimi
     // ------------------------------------------------------------------ //
+    function renderWeekTabs() {
+      const isMonthly = state.template_mode === "monthly";
+      const weekTabs = document.getElementById("weekTabs");
+      if (state.template_mode === "compact" || isMonthly) {
+        weekTabs.style.display = "flex";
+        let html = '<div style="display:flex; gap:6px; flex-wrap:wrap">';
+        for (let i = 0; i < 4; i++) {
+          const cnt = isMonthly
+            ? MATRIX_SUBJECTS.reduce((acc, s) => acc + (state.monthly_matrix[i][s]?.topics?.length || 0), 0)
+            : DAYS.reduce((acc, d) => acc + (state.weeks[i][d]?.length || 0), 0);
+          const rawLbl = (state.week_labels[i] || "").trim();
+          const isDef = !rawLbl || rawLbl === `${i + 1}. Hafta`;
+          const tabTitle = isDef ? `${i + 1}. Hafta` : `${i + 1}. Hafta · ${escapeHtml(rawLbl)}`;
+          const cls = i === state.active_week_idx ? "btn btn-primary btn-sm" : "btn btn-outline btn-sm";
+          html += `<button class="${cls}" onclick="selectWeek(${i})">${tabTitle} (${cnt})</button>`;
+        }
+        html += "</div><div style='display:flex; gap:6px; flex-wrap:wrap'>";
+        if (isMonthly) {
+          html += `<button class="btn btn-outline btn-sm" onclick="importWeeksToMatrix()">⇄ 4 Haftalıktan Aktar</button>`;
+        }
+        if (state.active_week_idx < 3) {
+          html += `<button class="btn btn-outline btn-sm" onclick="copyToNextWeek()">📋 ${state.active_week_idx + 2}. Haftaya Kopyala</button>`;
+        }
+        html += "</div>";
+        weekTabs.innerHTML = html;
+      } else {
+        weekTabs.style.display = "none";
+      }
+    }
+
     function renderSchedule() {
       saveState();
       const idx = currentWeekIdx();
@@ -644,35 +885,14 @@
 
       const btnRoutine = document.getElementById("btnRoutine");
       if (btnRoutine) btnRoutine.style.display = isMonthly ? "none" : "inline-flex";
+      const btnFillWeeks = document.getElementById("btnFillWeeks");
+      if (btnFillWeeks) btnFillWeeks.style.display = state.template_mode === "single" ? "none" : "inline-flex";
       const shrinkWrap = document.getElementById("shrinkEmptyWrap");
       const shrinkToggle = document.getElementById("shrinkEmptyToggle");
       if (shrinkWrap) shrinkWrap.style.display = isMonthly ? "none" : "inline-flex";
       if (shrinkToggle) shrinkToggle.checked = state.shrink_empty !== false;
 
-      // 4 Haftalık Sekmeler (Kompakt + Aylık Matris)
-      const weekTabs = document.getElementById("weekTabs");
-      if (state.template_mode === "compact" || isMonthly) {
-        weekTabs.style.display = "flex";
-        let html = '<div style="display:flex; gap:6px; flex-wrap:wrap">';
-        for (let i = 0; i < 4; i++) {
-          const cnt = isMonthly
-            ? MATRIX_SUBJECTS.reduce((acc, s) => acc + (state.monthly_matrix[i][s]?.topics?.length || 0), 0)
-            : DAYS.reduce((acc, d) => acc + (state.weeks[i][d]?.length || 0), 0);
-          const cls = i === state.active_week_idx ? "btn btn-primary btn-sm" : "btn btn-outline btn-sm";
-          html += `<button class="${cls}" onclick="selectWeek(${i})">${i + 1}. Hafta (${cnt})</button>`;
-        }
-        html += "</div><div style='display:flex; gap:6px; flex-wrap:wrap'>";
-        if (isMonthly) {
-          html += `<button class="btn btn-outline btn-sm" onclick="importWeeksToMatrix()">⇄ 4 Haftalıktan Aktar</button>`;
-        }
-        if (state.active_week_idx < 3) {
-          html += `<button class="btn btn-outline btn-sm" onclick="copyToNextWeek()">📋 ${state.active_week_idx + 2}. Haftaya Kopyala</button>`;
-        }
-        html += "</div>";
-        weekTabs.innerHTML = html;
-      } else {
-        weekTabs.style.display = "none";
-      }
+      renderWeekTabs();
 
       const container = document.getElementById("daysContainer");
 
@@ -1512,8 +1732,49 @@
       saveState();
     });
     document.getElementById("weekLabelInput").addEventListener("input", (e) => {
-      state.week_labels[currentWeekIdx()] = e.target.value;
+      const idx = currentWeekIdx();
+      const prevWeek0 = state.week_labels[0];
+      state.week_labels[idx] = e.target.value;
+      if (idx === 0) {
+        syncFollowingWeekLabels(prevWeek0, false);
+      }
+      renderWeekTabs();
       saveState();
+    });
+    document.getElementById("btnPickWeekDate").addEventListener("click", () => {
+      const picker = document.getElementById("weekDatePicker");
+      if (typeof picker.showPicker === "function") {
+        picker.showPicker();
+      } else {
+        picker.click();
+      }
+    });
+    document.getElementById("weekDatePicker").addEventListener("change", (e) => {
+      if (!e.target.value) return;
+      const [y, m, d] = e.target.value.split("-").map(Number);
+      const dt = new Date(y, m - 1, d);
+      const formatted = formatTrMonthDate(dt, false, false);
+      const idx = currentWeekIdx();
+      const prevWeek0 = state.week_labels[0];
+      state.week_labels[idx] = formatted;
+      if (idx === 0) {
+        syncFollowingWeekLabels(prevWeek0, true);
+        notify(`Hafta tarihleri güncellendi (${state.week_labels[0]} → ${state.week_labels[3]})`);
+      } else {
+        notify(`${idx + 1}. Hafta başlığı: ${formatted}`);
+      }
+      renderSchedule();
+    });
+    document.getElementById("btnFillWeeks").addEventListener("click", () => {
+      const gen = buildWeekLabelGenerator(state.week_labels[0]);
+      if (!gen) {
+        notify("1. Hafta başlığına tarih girin (örn: 16 Şubat veya 16.02.2026)");
+        document.getElementById("weekLabelInput").focus();
+        return;
+      }
+      syncFollowingWeekLabels(state.week_labels[0], true);
+      renderSchedule();
+      notify(`Haftalar güncellendi (${state.week_labels[0]} → ${state.week_labels[3]})`);
     });
     document.getElementById("shrinkEmptyToggle").addEventListener("change", (e) => {
       state.shrink_empty = Boolean(e.target.checked);
@@ -1523,6 +1784,9 @@
     document.querySelectorAll("#modeToggle button").forEach(btn => {
       btn.addEventListener("click", () => {
         state.template_mode = btn.dataset.mode;
+        if (state.template_mode !== "single") {
+          syncFollowingWeekLabels(state.week_labels[0], false);
+        }
         renderSchedule();
       });
     });
