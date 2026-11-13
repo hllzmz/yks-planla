@@ -52,11 +52,17 @@ MATRIX_SUBJECTS = [
 
 
 def map_to_matrix_subject(
-    session: str, ders: str, preferred_subject: str | None = None
+    session: str,
+    ders: str,
+    preferred_subject: str | None = None,
+    puan_turu: str = "",
 ) -> str | None:
     """TYT/AYT ders adını Aylık Gelişim Matrisi satırına eşler."""
     s = session.strip().upper()
     d = ders.strip()
+    pt = puan_turu.strip().upper()
+    is_soz_only = "SÖZ" in pt and "EA" not in pt
+
     if s == "TYT":
         tyt_map = {
             "Türkçe": "TÜRKÇE",
@@ -73,17 +79,13 @@ def map_to_matrix_subject(
         return tyt_map.get(d)
     if s == "AYT":
         if d == "Tarih":
-            return (
-                preferred_subject
-                if preferred_subject in ("AYT TARİH 1", "AYT TARİH 2")
-                else "AYT TARİH 1"
-            )
+            if preferred_subject in ("AYT TARİH 1", "AYT TARİH 2"):
+                return preferred_subject
+            return "AYT TARİH 2" if is_soz_only else "AYT TARİH 1"
         if d == "Coğrafya":
-            return (
-                preferred_subject
-                if preferred_subject in ("AYT COĞRAFYA 1", "AYT COĞRAFYA 2")
-                else "AYT COĞRAFYA 1"
-            )
+            if preferred_subject in ("AYT COĞRAFYA 1", "AYT COĞRAFYA 2"):
+                return preferred_subject
+            return "AYT COĞRAFYA 2" if is_soz_only else "AYT COĞRAFYA 1"
         ayt_map = {
             "Matematik": "AYT MATEMATİK",
             "Geometri": "AYT GEOMETRİ",
@@ -98,7 +100,7 @@ def map_to_matrix_subject(
             "Din Kültürü": "AYT DİN KÜLTÜRÜ",
         }
         return ayt_map.get(d)
-    return preferred_subject if preferred_subject in MATRIX_SUBJECTS else None
+    return None
 
 
 def tr_lower(text: str) -> str:

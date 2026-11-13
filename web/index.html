@@ -567,10 +567,18 @@
       return state.weeks[currentWeekIdx()];
     }
 
-    function mapTopicToMatrixSubject(fullDers, preferredSubject) {
-      const parts = String(fullDers || "").trim().split(/\s+/);
+    function mapTopicToMatrixSubject(fullDers, preferredSubject, puanTuru = "") {
+      const raw = String(fullDers || "").trim();
+      if (!raw) return null;
+      const directMatch = MATRIX_SUBJECTS.find(s => trLower(s) === trLower(raw));
+      if (directMatch) return directMatch;
+
+      const parts = raw.split(/\s+/);
       const sess = (parts[0] || "").toUpperCase();
       const ders = parts.slice(1).join(" ");
+      const pt = trLower(String(puanTuru || "").trim());
+      const isSozOnly = pt.includes("söz") && !pt.includes("ea");
+
       if (sess === "TYT") {
         const map = {
           "Türkçe": "TÜRKÇE",
@@ -584,16 +592,20 @@
           "Felsefe": "TYT FELSEFE",
           "Din Kültürü": "TYT DİN KÜLTÜRÜ",
         };
-        if (map[ders]) return map[ders];
+        return map[ders] || null;
       }
       if (sess === "AYT") {
         if (ders === "Tarih") {
-          return (preferredSubject === "AYT TARİH 1" || preferredSubject === "AYT TARİH 2")
-            ? preferredSubject : "AYT TARİH 1";
+          if (preferredSubject === "AYT TARİH 1" || preferredSubject === "AYT TARİH 2") {
+            return preferredSubject;
+          }
+          return isSozOnly ? "AYT TARİH 2" : "AYT TARİH 1";
         }
         if (ders === "Coğrafya") {
-          return (preferredSubject === "AYT COĞRAFYA 1" || preferredSubject === "AYT COĞRAFYA 2")
-            ? preferredSubject : "AYT COĞRAFYA 1";
+          if (preferredSubject === "AYT COĞRAFYA 1" || preferredSubject === "AYT COĞRAFYA 2") {
+            return preferredSubject;
+          }
+          return isSozOnly ? "AYT COĞRAFYA 2" : "AYT COĞRAFYA 1";
         }
         const map = {
           "Matematik": "AYT MATEMATİK",
@@ -608,9 +620,9 @@
           "Sosyoloji": "AYT FELSEFE GRUBU",
           "Din Kültürü": "AYT DİN KÜLTÜRÜ",
         };
-        if (map[ders]) return map[ders];
+        return map[ders] || null;
       }
-      return preferredSubject && MATRIX_SUBJECTS.includes(preferredSubject) ? preferredSubject : "TÜRKÇE";
+      return null;
     }
 
     let toastTimer = null;
@@ -627,7 +639,8 @@
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
     }
 
     // ------------------------------------------------------------------ //
@@ -669,6 +682,15 @@
       return y;
     }
 
+    function makeValidLocalDate(year, monthIdx, day) {
+      if (monthIdx < 0 || monthIdx > 11 || day < 1 || day > 31) return null;
+      const dt = new Date(year, monthIdx, day);
+      if (dt.getFullYear() !== year || dt.getMonth() !== monthIdx || dt.getDate() !== day) {
+        return null;
+      }
+      return dt;
+    }
+
     function addDaysLocal(dateObj, days) {
       return new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate() + days);
     }
@@ -682,29 +704,38 @@
       const text = String(rawText || "").trim();
       if (!text) return null;
 
-      // 1) "16-22 Şubat [2026] [Haftası]"
+      // 1) "16-22 Şubat [2026] [Haftası]" veya ay taşan "28-4 Mart"
       let m = text.match(/^(\d{1,2})\s*([-–])\s*(\d{1,2})\s+([A-Za-zÇĞİÖŞÜçğıöşü]+)(?:\s+(\d{4}))?(?:\s+(.+))?$/);
       if (m) {
         const d1 = parseInt(m[1], 10), d2 = parseInt(m[3], 10);
         const dash = m[2];
         const mInfo = lookupTrMonth(m[4]);
-        if (mInfo && d1 >= 1 && d1 <= 31 && d2 >= 1 && d2 <= 31) {
+        if (mInfo) {
           const hasYear = Boolean(m[5]);
           const year = hasYear ? parseInt(m[5], 10) : inferAcademicYear(mInfo.index);
           const suffix = m[6] ? ` ${m[6].trim()}` : "";
-          const start = new Date(year, mInfo.index, d1);
-          const end = new Date(year, mInfo.index, d2);
-          return (k) => {
-            const s = addDaysLocal(start, k * 7);
-            const e = addDaysLocal(end, k * 7);
-            if (s.getMonth() === e.getMonth()) {
-              const mName = (mInfo.isShort ? TR_MONTHS_SHORT : TR_MONTHS_FULL)[s.getMonth()];
-              return `${s.getDate()}${dash}${e.getDate()} ${mName}${hasYear ? " " + e.getFullYear() : ""}${suffix}`;
-            }
-            const sPart = formatTrMonthDate(s, mInfo.isShort, hasYear && s.getFullYear() !== e.getFullYear());
-            const ePart = formatTrMonthDate(e, mInfo.isShort, hasYear);
-            return `${sPart} ${dash} ${ePart}${suffix}`;
-          };
+          const end = makeValidLocalDate(year, mInfo.index, d2);
+          let start = null;
+          if (d2 < d1) {
+            const prevMonth = (mInfo.index + 11) % 12;
+            const prevYear = mInfo.index === 0 ? year - 1 : year;
+            start = makeValidLocalDate(prevYear, prevMonth, d1);
+          } else {
+            start = makeValidLocalDate(year, mInfo.index, d1);
+          }
+          if (start && end) {
+            return (k) => {
+              const s = addDaysLocal(start, k * 7);
+              const e = addDaysLocal(end, k * 7);
+              if (s.getMonth() === e.getMonth()) {
+                const mName = (mInfo.isShort ? TR_MONTHS_SHORT : TR_MONTHS_FULL)[s.getMonth()];
+                return `${s.getDate()}${dash}${e.getDate()} ${mName}${hasYear ? " " + e.getFullYear() : ""}${suffix}`;
+              }
+              const sPart = formatTrMonthDate(s, mInfo.isShort, hasYear && s.getFullYear() !== e.getFullYear());
+              const ePart = formatTrMonthDate(e, mInfo.isShort, hasYear);
+              return `${sPart} ${dash} ${ePart}${suffix}`;
+            };
+          }
         }
       }
 
@@ -713,26 +744,28 @@
       if (m) {
         const d1 = parseInt(m[1], 10), d2 = parseInt(m[5], 10);
         const m1 = lookupTrMonth(m[2]), m2 = lookupTrMonth(m[6]);
-        if (m1 && m2 && d1 >= 1 && d1 <= 31 && d2 >= 1 && d2 <= 31) {
+        if (m1 && m2) {
           const hasYear = Boolean(m[3] || m[7]);
           const y1 = m[3] ? parseInt(m[3], 10) : inferAcademicYear(m1.index);
           const y2 = m[7] ? parseInt(m[7], 10) : (m2.index < m1.index ? y1 + 1 : y1);
           const isShort = m1.isShort || m2.isShort;
           const dash = m[4];
           const suffix = m[8] ? ` ${m[8].trim()}` : "";
-          const start = new Date(y1, m1.index, d1);
-          const end = new Date(y2, m2.index, d2);
-          return (k) => {
-            const s = addDaysLocal(start, k * 7);
-            const e = addDaysLocal(end, k * 7);
-            if (s.getMonth() === e.getMonth()) {
-              const mName = (isShort ? TR_MONTHS_SHORT : TR_MONTHS_FULL)[s.getMonth()];
-              return `${s.getDate()}${dash}${e.getDate()} ${mName}${hasYear ? " " + e.getFullYear() : ""}${suffix}`;
-            }
-            const sPart = formatTrMonthDate(s, isShort, hasYear && s.getFullYear() !== e.getFullYear());
-            const ePart = formatTrMonthDate(e, isShort, hasYear);
-            return `${sPart} ${dash} ${ePart}${suffix}`;
-          };
+          const start = makeValidLocalDate(y1, m1.index, d1);
+          const end = makeValidLocalDate(y2, m2.index, d2);
+          if (start && end) {
+            return (k) => {
+              const s = addDaysLocal(start, k * 7);
+              const e = addDaysLocal(end, k * 7);
+              if (s.getMonth() === e.getMonth()) {
+                const mName = (isShort ? TR_MONTHS_SHORT : TR_MONTHS_FULL)[s.getMonth()];
+                return `${s.getDate()}${dash}${e.getDate()} ${mName}${hasYear ? " " + e.getFullYear() : ""}${suffix}`;
+              }
+              const sPart = formatTrMonthDate(s, isShort, hasYear && s.getFullYear() !== e.getFullYear());
+              const ePart = formatTrMonthDate(e, isShort, hasYear);
+              return `${sPart} ${dash} ${ePart}${suffix}`;
+            };
+          }
         }
       }
 
@@ -741,12 +774,14 @@
       if (m) {
         const d1 = parseInt(m[1], 10);
         const mInfo = lookupTrMonth(m[2]);
-        if (mInfo && d1 >= 1 && d1 <= 31) {
+        if (mInfo) {
           const hasYear = Boolean(m[3]);
           const year = hasYear ? parseInt(m[3], 10) : inferAcademicYear(mInfo.index);
           const suffix = m[4] ? ` ${m[4].trim()}` : "";
-          const base = new Date(year, mInfo.index, d1);
-          return (k) => formatTrMonthDate(addDaysLocal(base, k * 7), mInfo.isShort, hasYear) + suffix;
+          const base = makeValidLocalDate(year, mInfo.index, d1);
+          if (base) {
+            return (k) => formatTrMonthDate(addDaysLocal(base, k * 7), mInfo.isShort, hasYear) + suffix;
+          }
         }
       }
 
@@ -756,19 +791,19 @@
         const sep = m[2], dash = m[5];
         const d1 = parseInt(m[1], 10), mo1 = parseInt(m[3], 10);
         const d2 = parseInt(m[6], 10), mo2 = parseInt(m[7], 10);
-        if (mo1 >= 1 && mo1 <= 12 && mo2 >= 1 && mo2 <= 12 && d1 >= 1 && d1 <= 31 && d2 >= 1 && d2 <= 31) {
-          const yearSpec = m[8] || m[4] || "";
-          const hasYear = Boolean(yearSpec);
-          const yBase = hasYear
-            ? (yearSpec.length === 2 ? 2000 + parseInt(yearSpec, 10) : parseInt(yearSpec, 10))
-            : inferAcademicYear(mo1 - 1);
-          const yEnd = m[8]
-            ? (m[8].length === 2 ? 2000 + parseInt(m[8], 10) : parseInt(m[8], 10))
-            : (mo2 < mo1 ? yBase + 1 : yBase);
+        const yearSpec = m[8] || m[4] || "";
+        const hasYear = Boolean(yearSpec);
+        const yBase = hasYear
+          ? (yearSpec.length === 2 ? 2000 + parseInt(yearSpec, 10) : parseInt(yearSpec, 10))
+          : inferAcademicYear(mo1 - 1);
+        const yEnd = m[8]
+          ? (m[8].length === 2 ? 2000 + parseInt(m[8], 10) : parseInt(m[8], 10))
+          : (mo2 < mo1 ? yBase + 1 : yBase);
+        const start = makeValidLocalDate(yBase, mo1 - 1, d1);
+        const end = makeValidLocalDate(yEnd, mo2 - 1, d2);
+        if (start && end) {
           const pad2 = n => String(n).padStart(2, "0");
           const suffix = m[9] ? ` ${m[9].trim()}` : "";
-          const start = new Date(yBase, mo1 - 1, d1);
-          const end = new Date(yEnd, mo2 - 1, d2);
           const fmtNum = (dt) => {
             const yr = hasYear ? (yearSpec.length === 2 ? sep + String(dt.getFullYear()).slice(-2) : sep + dt.getFullYear()) : "";
             return `${pad2(dt.getDate())}${sep}${pad2(dt.getMonth() + 1)}${yr}`;
@@ -782,19 +817,33 @@
       if (m) {
         const sep = m[2];
         const d1 = parseInt(m[1], 10), mo1 = parseInt(m[3], 10);
-        if (mo1 >= 1 && mo1 <= 12 && d1 >= 1 && d1 <= 31) {
-          const yearSpec = m[4] || "";
-          const hasYear = Boolean(yearSpec);
-          const year = hasYear
-            ? (yearSpec.length === 2 ? 2000 + parseInt(yearSpec, 10) : parseInt(yearSpec, 10))
-            : inferAcademicYear(mo1 - 1);
+        const yearSpec = m[4] || "";
+        const hasYear = Boolean(yearSpec);
+        const year = hasYear
+          ? (yearSpec.length === 2 ? 2000 + parseInt(yearSpec, 10) : parseInt(yearSpec, 10))
+          : inferAcademicYear(mo1 - 1);
+        const base = makeValidLocalDate(year, mo1 - 1, d1);
+        if (base) {
           const pad2 = n => String(n).padStart(2, "0");
           const suffix = m[5] ? ` ${m[5].trim()}` : "";
-          const base = new Date(year, mo1 - 1, d1);
           return (k) => {
             const dt = addDaysLocal(base, k * 7);
             const yr = hasYear ? (yearSpec.length === 2 ? sep + String(dt.getFullYear()).slice(-2) : sep + dt.getFullYear()) : "";
             return `${pad2(dt.getDate())}${sep}${pad2(dt.getMonth() + 1)}${yr}${suffix}`;
+          };
+        }
+      }
+
+      // 5b) "2026-02-16" (ISO)
+      m = text.match(/^(\d{4})-(\d{2})-(\d{2})(?:\s+(.+))?$/);
+      if (m) {
+        const base = makeValidLocalDate(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
+        if (base) {
+          const pad2 = n => String(n).padStart(2, "0");
+          const suffix = m[4] ? ` ${m[4].trim()}` : "";
+          return (k) => {
+            const dt = addDaysLocal(base, k * 7);
+            return `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}${suffix}`;
           };
         }
       }
@@ -808,6 +857,42 @@
         return (k) => `${num + k}. ${word}${suffix}`;
       }
 
+      return null;
+    }
+
+    function parseStartDateFromLabel(rawText) {
+      const text = String(rawText || "").trim();
+      if (!text) return null;
+      let m = text.match(/^(\d{1,2})\s*[-–]\s*(\d{1,2})\s+([A-Za-zÇĞİÖŞÜçğıöşü]+)(?:\s+(\d{4}))?/);
+      if (m) {
+        const d1 = parseInt(m[1], 10), d2 = parseInt(m[2], 10);
+        const mInfo = lookupTrMonth(m[3]);
+        if (mInfo) {
+          const y = m[4] ? parseInt(m[4], 10) : inferAcademicYear(mInfo.index);
+          if (d2 < d1) {
+            return makeValidLocalDate(mInfo.index === 0 ? y - 1 : y, (mInfo.index + 11) % 12, d1);
+          }
+          return makeValidLocalDate(y, mInfo.index, d1);
+        }
+      }
+      m = text.match(/^(\d{1,2})\s+([A-Za-zÇĞİÖŞÜçğıöşü]+)(?:\s+(\d{4}))?/);
+      if (m) {
+        const mInfo = lookupTrMonth(m[2]);
+        if (mInfo) {
+          const y = m[3] ? parseInt(m[3], 10) : inferAcademicYear(mInfo.index);
+          return makeValidLocalDate(y, mInfo.index, parseInt(m[1], 10));
+        }
+      }
+      m = text.match(/^(\d{1,2})([./])(\d{1,2})(?:\2(\d{2,4}))?/);
+      if (m) {
+        const mo = parseInt(m[3], 10);
+        const y = m[4] ? (m[4].length === 2 ? 2000 + parseInt(m[4], 10) : parseInt(m[4], 10)) : inferAcademicYear(mo - 1);
+        return makeValidLocalDate(y, mo - 1, parseInt(m[1], 10));
+      }
+      m = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (m) {
+        return makeValidLocalDate(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
+      }
       return null;
     }
 
@@ -1035,7 +1120,16 @@
     window.setActiveMatrixSubject = (subj) => { state.active_matrix_subject = subj; renderSchedule(); };
     window.selectWeek = (idx) => { state.active_week_idx = idx; renderSchedule(); };
 
-    window.copyToNextWeek = () => {
+    function weekHasContent(wi) {
+      if (state.template_mode === "monthly") {
+        const mw = state.monthly_matrix[wi] || {};
+        return MATRIX_SUBJECTS.some(s => (mw[s]?.topics?.length || 0) > 0 || Number(mw[s]?.target_questions || 0) > 0);
+      }
+      const w = state.weeks[wi] || {};
+      return DAYS.some(d => (w[d]?.length || 0) > 0);
+    }
+
+    window.performCopyToNextWeek = () => {
       const i = state.active_week_idx;
       if (i >= 3) return;
       if (state.template_mode === "monthly") {
@@ -1043,17 +1137,53 @@
       } else {
         state.weeks[i + 1] = JSON.parse(JSON.stringify(state.weeks[i]));
       }
+      closeModal();
       notify(`${i + 1}. Hafta → ${i + 2}. Haftaya kopyalandı`);
       renderSchedule();
     };
 
+    window.copyToNextWeek = () => {
+      const i = state.active_week_idx;
+      if (i >= 3) return;
+      if (weekHasContent(i + 1)) {
+        openModal(`
+          <div class="modal-title">${i + 2}. Hafta Üzerine Yaz</div>
+          <div style="font-size:13.5px; color:#475569">${i + 2}. haftada zaten kayıtlı içerik bulunuyor. ${i + 1}. haftanın içeriği ile üzerine yazılsın mı?</div>
+          <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="closeModal()">Vazgeç</button>
+            <button class="btn btn-primary" onclick="performCopyToNextWeek()">Üzerine Yaz</button>
+          </div>
+        `);
+        return;
+      }
+      window.performCopyToNextWeek();
+    };
+
+    function lookupTopicPuanTuru(fullDers, konu) {
+      const yearsToCheck = [filterState.year, 2027, 2028];
+      for (const y of yearsToCheck) {
+        const list = curriculumCache[y];
+        if (!list) continue;
+        const found = list.find(item => item.full_ders === fullDers && item.konu === konu);
+        if (found) return found.puan_turu || "";
+      }
+      return "";
+    }
+
     window.importWeeksToMatrix = () => {
       const newMatrix = [emptyMatrixWeek(), emptyMatrixWeek(), emptyMatrixWeek(), emptyMatrixWeek()];
+      let skipped = 0;
+      const skippedNames = [];
       for (let wi = 0; wi < 4; wi++) {
         for (const d of DAYS) {
           for (const t of (state.weeks[wi][d] || [])) {
-            const targetSubj = mapTopicToMatrixSubject(t.ders, null);
-            if (!targetSubj) continue;
+            const pt = lookupTopicPuanTuru(t.ders, t.konu);
+            const targetSubj = mapTopicToMatrixSubject(t.ders, null, pt);
+            if (!targetSubj) {
+              skipped++;
+              if (t.ders && !skippedNames.includes(t.ders)) skippedNames.push(t.ders);
+              continue;
+            }
             const entry = newMatrix[wi][targetSubj];
             if (t.konu && !entry.topics.includes(t.konu)) {
               entry.topics.push(t.konu);
@@ -1066,12 +1196,24 @@
       }
       state.monthly_matrix = newMatrix;
       renderSchedule();
-      notify("4 haftalık programdaki konular matrise aktarıldı");
+      if (skipped > 0) {
+        notify(`Aktarıldı (${skipped} görev matris satırı olmadığı için atlandı: ${skippedNames.slice(0, 3).join(", ")})`);
+      } else {
+        notify("4 haftalık programdaki konular matrise aktarıldı");
+      }
     };
 
     window.updateMatrixTopic = (subj, idx, val) => {
       const entry = state.monthly_matrix[currentWeekIdx()][subj];
-      if (entry) entry.topics[idx] = val;
+      if (!entry) return;
+      const cleaned = String(val ?? "").trim();
+      if (!cleaned) {
+        entry.topics.splice(idx, 1);
+        renderSchedule();
+        notify("Boş konu satırı kaldırıldı");
+        return;
+      }
+      entry.topics[idx] = cleaned;
       saveState();
     };
     window.moveMatrixTopic = (subj, idx, delta) => {
@@ -1092,12 +1234,12 @@
     };
     window.openMatrixCustomModal = (subj) => {
       openModal(`
-        <div class="modal-title">${subj} — Özel Konu Ekle (${currentWeekIdx() + 1}. Hafta)</div>
+        <div class="modal-title">${escapeHtml(subj)} — Özel Konu Ekle (${currentWeekIdx() + 1}. Hafta)</div>
         <div class="field"><label>Konu / Açıklama</label><input id="mcKonu" class="input" style="width:100%" placeholder="Örn: Paragraf Denemesi / Tekrar" /></div>
         <div class="field"><label>Eklenecek Hedef Soru (İsteğe bağlı)</label><input id="mcQ" type="number" min="0" step="5" class="input" style="width:100%" value="0" /></div>
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="closeModal()">İptal</button>
-          <button class="btn btn-primary" onclick="saveMatrixCustom('${subj}')">Ekle</button>
+          <button class="btn btn-primary" data-subj="${escapeHtml(subj)}" onclick="saveMatrixCustom(this.dataset.subj)">Ekle</button>
         </div>
       `);
     };
@@ -1144,10 +1286,14 @@
       return { study_type: st, target_questions: q > 0 ? q : null };
     }
 
-    window.addTopic = (fullDers, konu) => {
+    window.addTopic = (fullDers, konu, puanTuru = "") => {
       const { study_type, target_questions } = getQuickDefaults();
       if (state.template_mode === "monthly") {
-        const subj = mapTopicToMatrixSubject(fullDers, state.active_matrix_subject);
+        const subj = mapTopicToMatrixSubject(fullDers, state.active_matrix_subject, puanTuru);
+        if (!subj) {
+          notify(`'${fullDers}' için Aylık Gelişim Matrisi'nde satır yok`);
+          return;
+        }
         const entry = state.monthly_matrix[currentWeekIdx()][subj];
         if (!entry.topics.includes(konu)) entry.topics.push(konu);
         if (target_questions) entry.target_questions = (entry.target_questions || 0) + target_questions;
@@ -1172,16 +1318,23 @@
       const { study_type, target_questions } = getQuickDefaults();
       if (state.template_mode === "monthly") {
         let lastSubj = state.active_matrix_subject;
+        let added = 0;
         for (const t of topics) {
-          const subj = mapTopicToMatrixSubject(t.full_ders, state.active_matrix_subject);
+          const subj = mapTopicToMatrixSubject(t.full_ders, state.active_matrix_subject, t.puan_turu || "");
+          if (!subj) continue;
           const entry = state.monthly_matrix[currentWeekIdx()][subj];
           if (!entry.topics.includes(t.konu)) entry.topics.push(t.konu);
           if (target_questions) entry.target_questions = (entry.target_questions || 0) + target_questions;
           lastSubj = subj;
+          added++;
+        }
+        if (added === 0) {
+          notify(`'${unitName}' dersleri için Aylık Gelişim Matrisi'nde satır yok`);
+          return;
         }
         state.active_matrix_subject = lastSubj;
         renderSchedule();
-        notify(`'${unitName}' (${topics.length} konu) → ${lastSubj}`);
+        notify(`'${unitName}' (${added} konu) → ${lastSubj}`);
         return;
       }
       for (const t of topics) {
@@ -1291,7 +1444,7 @@
           return;
         }
         const cards = Array.from(counts.entries()).map(([ders, count]) => `
-          <div class="subject-card" onclick="pickSubject('${escapeHtml(ders).replace(/'/g, "\\'")}')">
+          <div class="subject-card" data-ders="${escapeHtml(ders)}" onclick="pickSubject(this.dataset.ders)">
             <div>
               <div style="font-weight:700; font-size:13.5px">${escapeHtml(ders)}</div>
               <div style="font-size:12px; color:var(--muted)">${count} konu</div>
@@ -1347,7 +1500,9 @@
               <div class="unit-subbar">
                 <span>${unitTopics.length} alt başlık</span>
                 <button class="btn btn-ghost btn-xs" style="color:var(--primary)"
-                  onclick="addUnitTopics('${encodedTopics}', '${escapeHtml(uniteName).replace(/'/g, "\\'")}')">+ Üniteyi Ekle</button>
+                  data-topics="${encodedTopics}"
+                  data-unit="${escapeHtml(uniteName)}"
+                  onclick="addUnitTopics(this.dataset.topics, this.dataset.unit)">+ Üniteyi Ekle</button>
               </div>
               <div>
                 ${unitTopics.map(t => {
@@ -1360,9 +1515,12 @@
                         ${meta ? `<div class="topic-meta">${escapeHtml(meta)}</div>` : ""}
                       </div>
                       <div style="display:flex; align-items:center; gap:4px; flex-shrink:0">
-                        ${t.kazanim ? `<button class="btn btn-ghost btn-xs" title="Kazanım detayı" onclick="openKazanimModal('${encTopic}')">ⓘ</button>` : ""}
+                        ${t.kazanim ? `<button class="btn btn-ghost btn-xs" title="Kazanım detayı" data-topic="${encTopic}" onclick="openKazanimModal(this.dataset.topic)">ⓘ</button>` : ""}
                         <button class="btn btn-primary btn-xs"
-                          onclick="addTopic('${escapeHtml(t.full_ders).replace(/'/g, "\\'")}', '${escapeHtml(t.konu).replace(/'/g, "\\'")}')">+ Ekle</button>
+                          data-ders="${escapeHtml(t.full_ders)}"
+                          data-konu="${escapeHtml(t.konu)}"
+                          data-puan="${escapeHtml(t.puan_turu || "")}"
+                          onclick="addTopic(this.dataset.ders, this.dataset.konu, this.dataset.puan)">+ Ekle</button>
                       </div>
                     </div>
                   `;
@@ -1405,6 +1563,11 @@
     document.getElementById("modalBackdrop").addEventListener("click", (e) => {
       if (e.target.id === "modalBackdrop") closeModal();
     });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && document.getElementById("modalBackdrop").classList.contains("open")) {
+        closeModal();
+      }
+    });
 
     window.openKazanimModal = (encTopic) => {
       const t = JSON.parse(decodeURIComponent(encTopic));
@@ -1414,7 +1577,11 @@
         <div style="font-size:13.5px; color:#334155; line-height:1.55">${escapeHtml(t.kazanim)}</div>
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="closeModal()">Kapat</button>
-          <button class="btn btn-primary" onclick="addTopic('${escapeHtml(t.full_ders).replace(/'/g, "\\'")}', '${escapeHtml(t.konu).replace(/'/g, "\\'")}'); closeModal()">+ Aktif Güne Ekle</button>
+          <button class="btn btn-primary"
+            data-ders="${escapeHtml(t.full_ders)}"
+            data-konu="${escapeHtml(t.konu)}"
+            data-puan="${escapeHtml(t.puan_turu || "")}"
+            onclick="addTopic(this.dataset.ders, this.dataset.konu, this.dataset.puan); closeModal()">+ Aktif Güne Ekle</button>
         </div>
       `);
     };
@@ -1566,7 +1733,7 @@
           await pyodide.loadPackage(["micropip", "pillow"]);
           await pyodide.runPythonAsync(`
             import micropip
-            await micropip.install("openpyxl")
+            await micropip.install("openpyxl==3.1.5")
           `);
 
           pyodide.FS.mkdirTree("/app/templates");
@@ -1690,23 +1857,34 @@
 
       try {
         let usedApi = false;
-        try {
-          const res = await fetch("./api/export", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-          if (res.ok) {
-            const blob = await res.blob();
-            let filename = defaultFilename;
-            const cd = res.headers.get("Content-Disposition") || "";
-            const m = cd.match(/filename\*=UTF-8''([^;]+)/i);
-            if (m) filename = decodeURIComponent(m[1]);
-            triggerBlobDownload(blob, filename);
-            notify(`Excel indirildi: ${filename}`);
-            usedApi = true;
+        const isStaticHost =
+          location.hostname.endsWith("github.io") || location.protocol === "file:";
+        if (!isStaticHost) {
+          let res = null;
+          try {
+            res = await fetch("./api/export", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+          } catch (_) {
+            res = null;
           }
-        } catch (_) {}
+          if (res) {
+            if (res.ok) {
+              const blob = await res.blob();
+              let filename = defaultFilename;
+              const cd = res.headers.get("Content-Disposition") || "";
+              const m = cd.match(/filename\*=UTF-8''([^;]+)/i);
+              if (m) filename = decodeURIComponent(m[1]);
+              triggerBlobDownload(blob, filename);
+              notify(`Excel indirildi: ${filename}`);
+              usedApi = true;
+            } else if (res.status !== 404 && res.status !== 405) {
+              throw new Error(`Sunucu dışa aktarım hatası (${res.status})`);
+            }
+          }
+        }
 
         if (!usedApi) {
           const pyodide = await getPyodideEngine();
@@ -1748,6 +1926,11 @@
     });
     document.getElementById("btnPickWeekDate").addEventListener("click", () => {
       const picker = document.getElementById("weekDatePicker");
+      const parsed = parseStartDateFromLabel(state.week_labels[currentWeekIdx()]);
+      if (parsed) {
+        const pad2 = n => String(n).padStart(2, "0");
+        picker.value = `${parsed.getFullYear()}-${pad2(parsed.getMonth() + 1)}-${pad2(parsed.getDate())}`;
+      }
       if (typeof picker.showPicker === "function") {
         picker.showPicker();
       } else {

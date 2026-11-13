@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import math
 import re
+import warnings
 from copy import copy
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,6 +17,17 @@ from openpyxl.styles import Border
 from curriculum import DAYS_OF_WEEK, MATRIX_SUBJECTS, tr_upper
 
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
+
+
+def _load_template(template_path: Path):
+    """Şablonu openpyxl header/footer uyarısı üretmeden yükler."""
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message="Cannot parse header or footer.*",
+            category=UserWarning,
+        )
+        return openpyxl.load_workbook(template_path)
 
 
 @dataclass
@@ -146,14 +158,21 @@ def _shrink_day_block(
     new_end = start_row + target_rows - 1
     delete_from = new_end + 1
 
-    # Silinecek son satırın alt kenarlığını yeni son satıra aktar
+    # Silinecek son satırın alt kenarlığını (veya sonraki blok üst sınırını) yeni son satıra aktar
     for col in range(1, max_col + 1):
         src_border = ws.cell(base_end, col).border
+        bot_side = (
+            src_border.bottom
+            if src_border and src_border.bottom and src_border.bottom.style
+            else None
+        )
+        if bot_side is None and base_end + 1 <= ws.max_row:
+            below_border = ws.cell(base_end + 1, col).border
+            if below_border and below_border.top and below_border.top.style:
+                bot_side = below_border.top
         dst_cell = ws.cell(new_end, col)
         dst_border = copy(dst_cell.border) if dst_cell.has_style else Border()
-        dst_border.bottom = (
-            copy(src_border.bottom) if src_border and src_border.bottom else None
-        )
+        dst_border.bottom = copy(bot_side) if bot_side else None
         dst_cell.border = dst_border
 
     saved_merges: list[tuple[int, int, int, int]] = [
@@ -225,7 +244,7 @@ def export_single_week_excel(
     shrink_empty: bool = False,
 ) -> bytes:
     """HAFTALIK BOŞ DERS PROGRAMI.xlsx şablonunu doldurur ve bytes olarak döner."""
-    wb = openpyxl.load_workbook(template_path)
+    wb = _load_template(template_path)
     ws = wb.active
 
     clean_week_title = week_title.strip()
@@ -312,7 +331,7 @@ def export_compact_four_weeks_excel(
     shrink_empty: bool = False,
 ) -> bytes:
     """Ders_Calisma_Programi_Kompakt_Sablon.xlsx (4 hafta) şablonunu doldurur."""
-    wb = openpyxl.load_workbook(template_path)
+    wb = _load_template(template_path)
 
     padded_weeks = list(weeks[:4]) + [{} for _ in range(max(0, 4 - len(weeks)))]
     labels = list(week_labels or []) + [""] * 4
@@ -434,7 +453,7 @@ def export_monthly_matrix_excel(
     template_path: Path = TEMPLATES_DIR / "aylik_matris.xlsx",
 ) -> bytes:
     """AYLIK KAZANIM VE GELİŞİM MATRİSİ.xlsx şablonunu doldurur."""
-    wb = openpyxl.load_workbook(template_path)
+    wb = _load_template(template_path)
     ws = wb.active
 
     if student_name.strip():

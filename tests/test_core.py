@@ -124,6 +124,11 @@ class TestCurriculumAndExporter(unittest.TestCase):
         self.assertGreater(ws.row_dimensions[6].height or 0, 25)
         self.assertGreater(ws.row_dimensions[18].height or 0, 30)
 
+        # Tek haftalık daraltılmış SALI ve PERŞEMBE alt kenarlıkları medium kalmalı
+        self.assertEqual(ws["B6"].border.bottom.style, "medium")
+        self.assertEqual(ws["B15"].border.bottom.style, "medium")
+        self.assertEqual(ws["C16"].border.bottom.style, "medium")
+
         # Kompakt 4 hafta: 1. hafta Pazartesi 3 görev, 2. hafta Salı 2 görev, diğer günler boş (1 satır)
         w1 = {day: [] for day in DAYS_OF_WEEK}
         w1["PAZARTESİ"] = [ScheduleTask("TYT Türkçe", f"P{i}", "Soru Çözümü", 20) for i in range(1, 4)]
@@ -143,10 +148,14 @@ class TestCurriculumAndExporter(unittest.TestCase):
         self.assertEqual(ws12["D15"].value, "=SUM(D5:D14)")
         self.assertEqual(ws12["M15"].value, "=SUM(M5:M14)")
 
-
     def test_monthly_matrix_export_and_mapping(self) -> None:
         self.assertEqual(map_to_matrix_subject("TYT", "Matematik"), "TEMEL MATEMATİK")
         self.assertEqual(map_to_matrix_subject("AYT", "Tarih", "AYT TARİH 2"), "AYT TARİH 2")
+        self.assertEqual(map_to_matrix_subject("AYT", "Tarih", None, "SÖZ"), "AYT TARİH 2")
+        self.assertEqual(map_to_matrix_subject("AYT", "Tarih", None, "EA / SÖZ"), "AYT TARİH 1")
+        self.assertIsNone(map_to_matrix_subject("YDT", "İngilizce"))
+        self.assertIsNone(map_to_matrix_subject("YDT", "İngilizce", "TÜRKÇE"))
+        self.assertIsNone(map_to_matrix_subject("Genel", "Deneme", "TÜRKÇE"))
         self.assertEqual(len(MATRIX_SUBJECTS), 22)
 
         matrix_weeks = [
@@ -185,6 +194,37 @@ class TestCurriculumAndExporter(unittest.TestCase):
         self.assertEqual(ws["C25"].value, '=IF(SUM(C3:C24)>0,SUM(C3:C24),"")')
         self.assertEqual(ws["J25"].value, '=IF(SUM(J3:J24)>0,SUM(J3:J24),"")')
         self.assertGreater(ws.row_dimensions[3].height or 0, 19.5)
+
+    def test_fastapi_endpoints_and_export(self) -> None:
+        import app as web_app
+
+        html_resp = web_app.index()
+        self.assertEqual(html_resp.status_code, 200)
+        self.assertIn(b"YKS Program Planlay", html_resp.body)
+
+        meta = web_app.get_meta()
+        self.assertEqual(meta["years"], [2027, 2028])
+
+        subjs = web_app.get_subjects(year=2027, session="TYT", puan_turu="Tümü")
+        self.assertGreater(subjs["total"], 100)
+
+        curr = web_app.get_curriculum(year=2028, session="AYT", puan_turu="SAY", ders="Matematik", q="türev")
+        self.assertGreater(curr["total"], 0)
+
+        for mode in ("single", "compact", "monthly"):
+            payload = web_app.ExportPayload(
+                student_name="Test Öğrenci",
+                template_mode=mode,
+                week_labels=["16 Şubat", "23 Şubat", "2 Mart", "9 Mart"],
+                weeks=[{"PAZARTESİ": [web_app.TaskPayload(ders="TYT Türkçe", konu="Paragraf", target_questions=20)]}],
+                monthly_matrix=[{"TÜRKÇE": web_app.MatrixEntryPayload(topics=["Paragraf"], target_questions=100)}],
+                shrink_empty=True,
+            )
+            resp = web_app.export_excel(payload)
+            self.assertEqual(resp.status_code, 200)
+            self.assertIn("Content-Disposition", resp.headers)
+            wb = openpyxl.load_workbook(io.BytesIO(resp.body))
+            self.assertGreaterEqual(len(wb.sheetnames), 1)
 
 
 if __name__ == "__main__":

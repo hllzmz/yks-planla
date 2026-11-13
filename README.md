@@ -10,13 +10,14 @@
   - `2027 YKS`: TYT, AYT, YDT (311 konu/alt başlık + MEB kazanım detayları)
   - `2028 YKS`: TYT, AYT, YDT (314 konu/alt başlık + Maarif Modeli öğrenme çıktıları)
 - **Tıkla-Ata Hızlı Planlama:** Sol tarafta **Aktif Gün** seçip sağdaki müfredat ağacından **`+ Ekle`** (veya tüm üniteyi eklemek için **`+ Üniteyi Ekle`**) butonlarına basarak konuları anında haftaya yerleştirme.
-- **Rutin Dağıtıcı:** *"20 Paragraf"*, *"20 Problem"*, *"20 Geometri"* veya özel rutinleri seçili günlere tek tıkla dağıtma.
+- **Rutin Dağıtıcı & Hızlı Araçlar:** *"20 Paragraf"*, *"20 Problem"*, *"20 Geometri"* veya özel rutinleri seçili günlere tek tıkla dağıtma; **`🆕 Yeni Program`** ile sıfırdan yeni öğrenci programı başlatma.
+- **Otomatik Hafta Tarihi (+7 Gün):** Takvim seçiciden (`📅`) veya 1. hafta başlığından tarih girildiğinde 2–4. hafta başlıklarını otomatik +7 gün ilerletme (`↻ +7 Gün`).
 - **Otomatik Taslak Kaydı:** Çalışmalarınız tarayıcıda (`localStorage`) otomatik saklanır; sayfa yenilense bile kaybolmaz.
 - **Üç Farklı Excel Export Formatı:**
   - **Tek Haftalık Şablon** (`templates/haftalik_bos.xlsx`)
   - **4 Haftalık Kompakt Şablon** (`templates/kompakt_sablon.xlsx` — `1-2. Hafta Programı` ve `3-4. Hafta Programı` sekmeleriyle)
   - **Aylık Gelişim Matrisi** (`templates/aylik_matris.xlsx` — 22 ders satırı üzerinde 4 haftalık konu ve soru hedefi matrisi)
-  - Bir güne şablondaki boş satır kapasitesinden fazla görev eklense dahi birleşik hücreleri, kenarlıkları ve toplam formüllerini otomatik korur.
+  - Bir güne şablondaki kapasiteden fazla görev eklendiğinde satırları otomatik genişletir; isteğe bağlı **`Boş satırları daralt`** seçeneğiyle gün içindeki kullanılmayan boş satırları sıkıştırır.
 
 ## Kurulum ve Çalıştırma
 
@@ -28,6 +29,9 @@ pip install -r requirements.txt
 
 # Uygulamayı başlatın
 python app.py
+
+# Testleri çalıştırın
+python -m unittest discover -s tests -v
 ```
 
 Ardından tarayıcınızda `http://localhost:8080` adresini açın.
@@ -37,10 +41,11 @@ Ardından tarayıcınızda `http://localhost:8080` adresini açın.
 - `app.py`: FastAPI tabanlı Python arka uç ve API sunucusu
 - `web/index.html`: Harici bağımlılığı olmayan, tek dosyalık web arayüzü
 - `curriculum.py`: 2027 & 2028 müfredat yükleme, Türkçe duyarlı filtreleme ve matris ders eşleme
-- `excel_exporter.py`: `openpyxl` tabanlı şablon doldurma ve dinamik satır genişletme motoru
+- `excel_exporter.py`: `openpyxl` tabanlı şablon doldurma, dinamik satır genişletme ve daraltma motoru
 - `data/`: JSON formatında gömülü 2027 ve 2028 müfredat verileri
 - `templates/`: Orijinal tek haftalık, 4 haftalık kompakt ve aylık gelişim matrisi Excel şablonları
 - `scripts/import_from_excel.py`: Kaynak Excel müfredat dosyalarından `data/*.json` üreten yardımcı script
+- `tests/test_core.py`: Müfredat, Excel dışa aktarım ve API uç nokta testleri
 
 ## Lisans
 
