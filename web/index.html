@@ -399,7 +399,7 @@
           <button type="button" class="btn btn-outline btn-xs" id="btnPickWeekDate" title="Takvimden tarih seç (1. haftada diğer haftaları +7 gün doldurur)">📅</button>
           <button type="button" class="btn btn-outline btn-xs" id="btnFillWeeks" title="1. hafta tarihine göre 2, 3 ve 4. haftaları +7 gün ilerleterek doldurur">↻ +7 Gün</button>
           <label id="shrinkEmptyWrap" style="display:inline-flex; align-items:center; gap:5px; font-size:12px; color:#475569; font-weight:600; cursor:pointer; margin-left:4px" title="Excel çıktısında gün içindeki kullanılmayan boş satırları otomatik daraltır">
-            <input id="shrinkEmptyToggle" type="checkbox" checked />
+            <input id="shrinkEmptyToggle" type="checkbox" />
             Boş satırları daralt
           </label>
         </div>
@@ -518,7 +518,12 @@
       if (!obj.active_matrix_subject || !MATRIX_SUBJECTS.includes(obj.active_matrix_subject)) {
         obj.active_matrix_subject = "TÜRKÇE";
       }
-      obj.shrink_empty = obj.shrink_empty !== false;
+      if (!obj.shrink_empty_v2) {
+        obj.shrink_empty = false;
+        obj.shrink_empty_v2 = true;
+      } else {
+        obj.shrink_empty = obj.shrink_empty === true;
+      }
       return obj;
     }
 
@@ -890,7 +895,7 @@
       const shrinkWrap = document.getElementById("shrinkEmptyWrap");
       const shrinkToggle = document.getElementById("shrinkEmptyToggle");
       if (shrinkWrap) shrinkWrap.style.display = isMonthly ? "none" : "inline-flex";
-      if (shrinkToggle) shrinkToggle.checked = state.shrink_empty !== false;
+      if (shrinkToggle) shrinkToggle.checked = Boolean(state.shrink_empty);
 
       renderWeekTabs();
 
@@ -1619,7 +1624,7 @@
                         ]
                     weeks_conv.append(w_dict)
 
-                shrink_empty = bool(payload.get("shrink_empty", True))
+                shrink_empty = bool(payload.get("shrink_empty", False))
                 if mode == "single":
                     return export_single_week_excel(
                         week_plan=weeks_conv[0] if weeks_conv else {},
@@ -1670,7 +1675,7 @@
         week_labels: state.week_labels,
         weeks: state.weeks,
         monthly_matrix: state.monthly_matrix,
-        shrink_empty: state.shrink_empty !== false,
+        shrink_empty: Boolean(state.shrink_empty),
       };
       const baseName = safeFilePart(state.student_name, "Ogrenci");
       const rawSingleLbl = String(state.week_labels[0] || "").trim();

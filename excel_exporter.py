@@ -222,7 +222,7 @@ def export_single_week_excel(
     student_name: str = "",
     week_title: str = "",
     template_path: Path = TEMPLATES_DIR / "haftalik_bos.xlsx",
-    shrink_empty: bool = True,
+    shrink_empty: bool = False,
 ) -> bytes:
     """HAFTALIK BOŞ DERS PROGRAMI.xlsx şablonunu doldurur ve bytes olarak döner."""
     wb = openpyxl.load_workbook(template_path)
@@ -309,7 +309,7 @@ def export_compact_four_weeks_excel(
     student_name: str = "",
     week_labels: list[str] | None = None,
     template_path: Path = TEMPLATES_DIR / "kompakt_sablon.xlsx",
-    shrink_empty: bool = True,
+    shrink_empty: bool = False,
 ) -> bytes:
     """Ders_Calisma_Programi_Kompakt_Sablon.xlsx (4 hafta) şablonunu doldurur."""
     wb = openpyxl.load_workbook(template_path)

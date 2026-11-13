@@ -54,7 +54,7 @@ class ExportPayload(BaseModel):
     )
     weeks: list[dict[str, list[TaskPayload]]] = Field(default_factory=list)
     monthly_matrix: list[dict[str, MatrixEntryPayload]] = Field(default_factory=list)
-    shrink_empty: bool = True
+    shrink_empty: bool = False
 
 
 def safe_filename(name: str) -> str:
