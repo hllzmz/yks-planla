@@ -161,13 +161,17 @@ def export_excel(payload: ExportPayload) -> Response:
 
     if payload.template_mode == "single":
         week0 = _to_schedule_week(payload.weeks[0] if payload.weeks else {})
+        raw_lbl = (payload.week_labels[0] if payload.week_labels else "").strip()
         data = export_single_week_excel(
             week_plan=week0,
             student_name=payload.student_name,
-            week_title=labels[0],
+            week_title=raw_lbl,
         )
-        w_part = safe_filename(labels[0])
-        filename = f"{base}_{w_part}_Program.xlsx"
+        if raw_lbl and raw_lbl.lower() != "1. hafta":
+            w_part = safe_filename(raw_lbl)
+            filename = f"{base}_{w_part}_Program.xlsx"
+        else:
+            filename = f"{base}_Haftalik_Program.xlsx"
     elif payload.template_mode == "monthly":
         matrix_weeks = [
             {

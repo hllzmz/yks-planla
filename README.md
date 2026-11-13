@@ -42,3 +42,8 @@ Ardından tarayıcınızda `http://localhost:8080` adresini açın.
 - `data/`: JSON formatında gömülü 2027 ve 2028 müfredat verileri
 - `templates/`: Orijinal tek haftalık, 4 haftalık kompakt ve aylık gelişim matrisi Excel şablonları
 - `scripts/import_from_excel.py`: Kaynak Excel müfredat dosyalarından `data/*.json` üreten yardımcı script
+
+## Lisans
+
+Bu proje [MIT Lisansı](LICENSE) ile lisanslanmıştır. Kullanım ve dağıtım serbesttir; kopyalarda telif hakkı ve geliştirici (`Halil Üzmez`) atıf bildiriminin korunması gerekir.
+

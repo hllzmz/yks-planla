@@ -93,6 +93,8 @@
     .btn-ghost:hover { background: #f1f5f9; color: var(--text); }
     .btn-danger-ghost { background: transparent; color: var(--danger); }
     .btn-danger-ghost:hover { background: #fef2f2; }
+    .btn-danger-soft { background: #fef2f2; color: var(--danger); border-color: #fecaca; }
+    .btn-danger-soft:hover { background: #fee2e2; border-color: #fca5a5; }
     .btn-sm { padding: 4px 8px; font-size: 12px; }
     .btn-xs { padding: 2px 6px; font-size: 11px; border-radius: 5px; }
 
@@ -379,7 +381,7 @@
 
       <button class="btn btn-outline" id="btnRoutine">↻ Rutin Dağıt</button>
       <button class="btn btn-outline" id="btnNewProgram" title="Öğrenci adını ve tüm haftaları sıfırlayarak yeni program başlatır">🆕 Yeni Program</button>
-      <button class="btn btn-danger-ghost" id="btnClear" title="Sadece aktif haftayı temizler">Temizle</button>
+      <button class="btn btn-danger-soft" id="btnClear" title="Sadece aktif haftayı temizler">Temizle</button>
       <button class="btn btn-success" id="btnExport">⬇ Excel Olarak İndir</button>
     </div>
   </header>
@@ -625,7 +627,11 @@
       const isMonthly = state.template_mode === "monthly";
 
       document.getElementById("studentName").value = state.student_name || "";
-      document.getElementById("weekLabelInput").value = state.week_labels[idx] || `${idx + 1}. Hafta`;
+      const rawWeekLbl = (state.week_labels[idx] || "").trim();
+      document.getElementById("weekLabelInput").value =
+        state.template_mode === "single"
+          ? (rawWeekLbl.toLowerCase() === "1. hafta" ? "" : rawWeekLbl)
+          : (rawWeekLbl || `${idx + 1}. Hafta`);
 
       document.querySelectorAll("#modeToggle button").forEach(b => {
         b.classList.toggle("active", b.dataset.mode === state.template_mode);
@@ -1434,8 +1440,12 @@
         monthly_matrix: state.monthly_matrix,
       };
       const baseName = safeFilePart(state.student_name, "Ogrenci");
+      const rawSingleLbl = String(state.week_labels[0] || "").trim();
+      const singleSuffix = (rawSingleLbl && rawSingleLbl.toLowerCase() !== "1. hafta")
+        ? `${safeFilePart(rawSingleLbl, "Haftalik")}_Program`
+        : "Haftalik_Program";
       const defaultFilename = state.template_mode === "single"
-        ? `${baseName}_${safeFilePart(state.week_labels[0], "1_Hafta")}_Program.xlsx`
+        ? `${baseName}_${singleSuffix}.xlsx`
         : state.template_mode === "monthly"
           ? `${baseName}_Aylik_Gelisim_Matrisi.xlsx`
           : `${baseName}_4_Haftalik_Kompakt_Program.xlsx`;

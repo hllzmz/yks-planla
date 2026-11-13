@@ -53,6 +53,13 @@ class TestCurriculumAndExporter(unittest.TestCase):
         self.assertEqual(ws["F3"].value, 25)
         self.assertEqual(ws["B43"].value, "Genel Deneme")  # 3 satır kaymış Pazar başlangıcı (40+3=43)
 
+        raw_default = export_single_week_excel(
+            plan, student_name="Halil Üzmez", week_title="1. Hafta"
+        )
+        ws_def = openpyxl.load_workbook(io.BytesIO(raw_default)).active
+        self.assertEqual(ws_def["A1"].value, "HALİL ÜZMEZ - HAFTALIK DERS ÇALIŞMA PROGRAMI")
+        self.assertEqual(ws_def.title, "Haftalık Program")
+
     def test_compact_four_weeks_export(self) -> None:
         w1 = {day: [] for day in DAYS_OF_WEEK}
         w1["SALI"] = [

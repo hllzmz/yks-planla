@@ -139,15 +139,21 @@ def export_single_week_excel(
     wb = openpyxl.load_workbook(template_path)
     ws = wb.active
 
-    header_parts = [p.strip() for p in (student_name, week_title) if p and p.strip()]
+    clean_week_title = week_title.strip()
+    is_default_week = tr_upper(clean_week_title) in ("", "1. HAFTA")
+    header_parts = [
+        p
+        for p in (student_name.strip(), "" if is_default_week else clean_week_title)
+        if p
+    ]
     if header_parts:
         ws["A1"].value = f"{tr_upper(' - '.join(header_parts))} - HAFTALIK DERS ÇALIŞMA PROGRAMI"
 
-    if week_title.strip():
-        target_title = _sanitize_sheet_title(week_title, ws.title)
-        if target_title != ws.title:
-            ws.title = "__temp_sheet__"
-            ws.title = target_title
+    target_sheet = "Haftalık Program" if is_default_week else clean_week_title
+    target_title = _sanitize_sheet_title(target_sheet, ws.title)
+    if target_title != ws.title:
+        ws.title = "__temp_sheet__"
+        ws.title = target_title
 
     base_blocks = _detect_day_blocks(ws)
 
