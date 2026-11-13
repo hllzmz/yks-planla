@@ -45,5 +45,5 @@ Ardından tarayıcınızda `http://localhost:8080` adresini açın.
 
 ## Lisans
 
-Bu proje [MIT Lisansı](LICENSE) ile lisanslanmıştır. Kullanım ve dağıtım serbesttir; kopyalarda telif hakkı ve geliştirici (`Halil Üzmez`) atıf bildiriminin korunması gerekir.
+Bu proje [MIT Lisansı](LICENSE) ile lisanslanmıştır. Kullanım ve dağıtım serbesttir; kopyalarda telif hakkı ve geliştirici atıf bildiriminin korunması gerekir.
 
