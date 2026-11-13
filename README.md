@@ -1,9 +1,8 @@
 # YKS Çalışma Programı Planlayıcı
 
-Öğrenciler için **2027 YKS (MEB 2018)** ve **2028 YKS (Türkiye Yüzyılı Maarif Modeli)** müfredatlarını kullanarak hızlıca haftalık / 4 haftalık ders çalışma programları hazırlayan ve doğrudan orijinal Excel şablonlarınıza aktaran **Python (`FastAPI` + `openpyxl`)** web uygulaması.
+Öğrenciler için **2027 YKS (MEB 2018)** ve **2028 YKS (Türkiye Yüzyılı Maarif Modeli)** müfredatlarını kullanarak hızlıca haftalık / 4 haftalık ders çalışma programları hazırlayan ve doğrudan orijinal Excel şablonlarınıza aktaran Python web uygulaması.
 
 🌐 **Canlı Kullanım (GitHub Pages):** https://hllzmz.github.io/yks-planla/  
-*(GitHub Pages üzerinde Python/`openpyxl` motoru doğrudan tarayıcıda Pyodide ile çalışır; kurulum gerektirmez.)*
 
 ## Özellikler
 
