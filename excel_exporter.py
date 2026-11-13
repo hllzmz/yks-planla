@@ -11,7 +11,6 @@ from pathlib import Path
 
 import openpyxl
 from openpyxl.cell.cell import Cell
-from openpyxl.styles import Alignment, Font
 
 from curriculum import DAYS_OF_WEEK, MATRIX_SUBJECTS, tr_upper
 
@@ -142,11 +141,7 @@ def export_single_week_excel(
 
     header_parts = [p.strip() for p in (student_name, week_title) if p and p.strip()]
     if header_parts:
-        ws["A1"].value = tr_upper(" - ".join(header_parts)) + "\nHAFTALIK DERS ÇALIŞMA PROGRAMI"
-        ws["A1"].font = Font(name="Calibri", size=13, bold=True)
-        ws["A1"].alignment = Alignment(
-            horizontal="center", vertical="center", wrap_text=True
-        )
+        ws["A1"].value = f"{tr_upper(' - '.join(header_parts))} - HAFTALIK DERS ÇALIŞMA PROGRAMI"
 
     if week_title.strip():
         target_title = _sanitize_sheet_title(week_title, ws.title)
@@ -221,15 +216,19 @@ def export_compact_four_weeks_excel(
         ws = wb[sheet_name]
 
         if student_name.strip():
-            ws["C1"].value = f"{tr_upper(student_name.strip())} - DERS ÇALIŞMA PROGRAMI"
+            ws["A1"].value = f"{tr_upper(student_name.strip())} - DERS ÇALIŞMA PROGRAMI"
 
         left_lbl = labels[left_idx].strip()
         right_lbl = labels[right_idx].strip()
         ws["A3"].value = (
-            f"{default_left_lbl} ({left_lbl})" if left_lbl else default_left_lbl
+            f"{default_left_lbl} ({left_lbl})"
+            if left_lbl and tr_upper(left_lbl) != default_left_lbl
+            else default_left_lbl
         )
         ws["J3"].value = (
-            f"{default_right_lbl} ({right_lbl})" if right_lbl else default_right_lbl
+            f"{default_right_lbl} ({right_lbl})"
+            if right_lbl and tr_upper(right_lbl) != default_right_lbl
+            else default_right_lbl
         )
 
         left_plan = padded_weeks[left_idx]

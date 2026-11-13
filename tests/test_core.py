@@ -34,7 +34,7 @@ class TestCurriculumAndExporter(unittest.TestCase):
         plan = {day: [] for day in DAYS_OF_WEEK}
         plan["PAZARTESİ"] = [
             ScheduleTask("TYT Matematik", f"Konu {i}", "Soru Çözümü", 25)
-            for i in range(1, 10)  # 9 görev -> 6 satırlık bloku taşırır
+            for i in range(1, 10)  # 9 görev -> 6 satırlık bloku 3 satır taşırır
         ]
         plan["PAZAR"] = [
             ScheduleTask("Genel Deneme", "TYT Deneme", "Deneme", 120)
@@ -47,18 +47,17 @@ class TestCurriculumAndExporter(unittest.TestCase):
         ws = wb.active
         self.assertEqual(ws.title, "16 Şubat")
         self.assertIn("ZEYNEP KAYA", ws["A1"].value)
-        self.assertEqual(ws["B5"].value, "TYT Matematik")
-        self.assertEqual(ws["B13"].value, "TYT Matematik")  # 9. satır (5+8=13)
-        self.assertEqual(ws["F5"].value, 25)
-        self.assertEqual(ws["B45"].value, "Genel Deneme")  # 3 satır kaymış Pazar başlangıcı (42+3=45)
-        with zipfile.ZipFile(io.BytesIO(raw)) as zf:
-            self.assertIn("xl/media/image1.png", zf.namelist())
+        self.assertEqual(ws["A1"].font.size, 10)
+        self.assertEqual(ws["B3"].value, "TYT Matematik")
+        self.assertEqual(ws["B11"].value, "TYT Matematik")  # 9. satır (3+8=11)
+        self.assertEqual(ws["F3"].value, 25)
+        self.assertEqual(ws["B43"].value, "Genel Deneme")  # 3 satır kaymış Pazar başlangıcı (40+3=43)
 
     def test_compact_four_weeks_export(self) -> None:
         w1 = {day: [] for day in DAYS_OF_WEEK}
         w1["SALI"] = [
             ScheduleTask("AYT Fizik", f"Kuvvet {i}", "Konu", 30)
-            for i in range(1, 9)  # 8 görev -> 6 satırlık Salı'yı genişletir
+            for i in range(1, 9)  # 8 görev -> 6 satırlık Salı'yı 2 satır genişletir
         ]
         w3 = {day: [] for day in DAYS_OF_WEEK}
         w3["CUMA"] = [
@@ -73,12 +72,14 @@ class TestCurriculumAndExporter(unittest.TestCase):
         wb = openpyxl.load_workbook(io.BytesIO(raw))
         self.assertEqual(wb.sheetnames, ["1-2. Hafta Programı", "3-4. Hafta Programı"])
         ws12 = wb["1-2. Hafta Programı"]
-        self.assertIn("ALİ DEMİR", ws12["C1"].value)
-        # Salı 2 satır uzadığı için toplam satırı 49 -> 51 olmalı
-        self.assertEqual(ws12["D51"].value, "=SUM(D5:D50)")
-        self.assertEqual(ws12["M51"].value, "=SUM(M5:M50)")
+        self.assertIn("ALİ DEMİR", ws12["A1"].value)
+        self.assertEqual(ws12["A1"].font.size, 10)
+        # Taban toplam satırı 47; Salı 2 satır uzadığı için 49 olmalı
+        self.assertEqual(ws12["D49"].value, "=SUM(D5:D48)")
+        self.assertEqual(ws12["M49"].value, "=SUM(M5:M48)")
 
         ws34 = wb["3-4. Hafta Programı"]
+        self.assertIn("ALİ DEMİR", ws34["A1"].value)
         # 3-4. Hafta taban toplam satırı 47, Cuma 2 satır uzayınca 49 olmalı
         self.assertEqual(ws34["D49"].value, "=SUM(D5:D48)")
         self.assertEqual(ws34["M49"].value, "=SUM(M5:M48)")

@@ -378,7 +378,8 @@
       </div>
 
       <button class="btn btn-outline" id="btnRoutine">↻ Rutin Dağıt</button>
-      <button class="btn btn-danger-ghost" id="btnClear">Temizle</button>
+      <button class="btn btn-outline" id="btnNewProgram" title="Öğrenci adını ve tüm haftaları sıfırlayarak yeni program başlatır">🆕 Yeni Program</button>
+      <button class="btn btn-danger-ghost" id="btnClear" title="Sadece aktif haftayı temizler">Temizle</button>
       <button class="btn btn-success" id="btnExport">⬇ Excel Olarak İndir</button>
     </div>
   </header>
@@ -1550,6 +1551,50 @@
       renderSchedule();
       notify("Hafta temizlendi");
     };
+    function hasAnyProgramData() {
+      if ((state.student_name || "").trim()) return true;
+      for (let i = 0; i < 4; i++) {
+        if ((state.week_labels[i] || "").trim() !== `${i + 1}. Hafta`) return true;
+        for (const d of DAYS) {
+          if ((state.weeks[i][d] || []).length > 0) return true;
+        }
+        for (const s of MATRIX_SUBJECTS) {
+          const entry = state.monthly_matrix[i][s];
+          if (entry && (entry.topics.length > 0 || Number(entry.target_questions || 0) > 0)) return true;
+        }
+      }
+      return false;
+    }
+
+    window.startNewProgram = () => {
+      state.student_name = "";
+      state.active_week_idx = 0;
+      state.week_labels = ["1. Hafta", "2. Hafta", "3. Hafta", "4. Hafta"];
+      state.weeks = [emptyWeek(), emptyWeek(), emptyWeek(), emptyWeek()];
+      state.monthly_matrix = [emptyMatrixWeek(), emptyMatrixWeek(), emptyMatrixWeek(), emptyMatrixWeek()];
+      state.active_day = "PAZARTESİ";
+      state.active_matrix_subject = "TÜRKÇE";
+      closeModal();
+      renderSchedule();
+      document.getElementById("studentName").focus();
+      notify("Yeni boş program hazırlandı");
+    };
+
+    document.getElementById("btnNewProgram").addEventListener("click", () => {
+      if (!hasAnyProgramData()) {
+        window.startNewProgram();
+        return;
+      }
+      openModal(`
+        <div class="modal-title">Yeni Program Başlat</div>
+        <div style="font-size:13.5px; color:#475569">Öğrenci adı, hafta başlıkları, tüm haftalar ve aylık matristeki mevcut içerik sıfırlanacak. Emin misiniz?</div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="closeModal()">Vazgeç</button>
+          <button class="btn btn-primary" style="background:var(--danger)" onclick="startNewProgram()">Evet, Yeni Program Başlat</button>
+        </div>
+      `);
+    });
+
     document.getElementById("btnClear").addEventListener("click", () => {
       openModal(`
         <div class="modal-title">Haftayı Temizle</div>
