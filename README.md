@@ -9,7 +9,7 @@
 - **Gömülü Güncel Müfredatlar:**
   - `2027 YKS`: TYT, AYT, YDT (311 konu/alt başlık + MEB kazanım detayları)
   - `2028 YKS`: TYT, AYT, YDT (314 konu/alt başlık + Maarif Modeli öğrenme çıktıları)
-- **Tıkla-Ata Hızlı Planlama:** Sol tarafta **Aktif Gün** seçip sağdaki müfredat ağacından **`+ Ekle`** (veya tüm üniteyi eklemek için **`+ Üniteyi Ekle`**) butonlarına basarak konuları anında haftaya yerleştirme.
+- **Tıkla-Ata & Sürükle-Bırak Planlama:** Sağdaki müfredat ağacından **`+ Ekle`** / **`+ Üniteyi Ekle`** butonlarıyla veya **`⠿` tutamacından sürükle-bırak** yaparak konuları ve tüm üniteleri istediğiniz günün istediğiniz sırasına yerleştirme; gün içi ve günler arası görev taşıma.
 - **Rutin Dağıtıcı & Hızlı Araçlar:** *"20 Paragraf"*, *"20 Problem"*, *"20 Geometri"* veya özel rutinleri seçili günlere tek tıkla dağıtma; **`🆕 Yeni Program`** ile sıfırdan yeni öğrenci programı başlatma.
 - **Otomatik Hafta Tarihi (+7 Gün):** Takvim seçiciden (`📅`) veya 1. hafta başlığından tarih girildiğinde 2–4. hafta başlıklarını otomatik +7 gün ilerletme (`↻ +7 Gün`).
 - **Otomatik Taslak Kaydı:** Çalışmalarınız tarayıcıda (`localStorage`) otomatik saklanır; sayfa yenilense bile kaybolmaz.

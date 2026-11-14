@@ -177,9 +177,22 @@
       overflow: hidden;
       border-left-width: 4px;
       border-left-style: solid;
+      transition: outline-color 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
     }
     .day-card.active {
       outline: 2px solid var(--primary);
+      outline-offset: -1px;
+    }
+    .day-card.drop-target {
+      outline: 2px dashed var(--primary);
+      outline-offset: -1px;
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+    }
+    .day-card.drop-target .day-header {
+      background: #dbeafe;
+    }
+    .day-card.drop-target-blocked {
+      outline: 2px dashed #ef4444;
       outline-offset: -1px;
     }
     .day-PAZARTESİ { border-left-color: #3b82f6; }
@@ -204,7 +217,7 @@
     .day-title { font-weight: 700; font-size: 13px; display: flex; align-items: center; gap: 8px; }
     .day-meta { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
 
-    .task-list { divide-y: 1px solid #f1f5f9; }
+    .task-list { position: relative; }
     .task-row {
       display: flex;
       align-items: center;
@@ -212,9 +225,14 @@
       gap: 8px;
       padding: 7px 12px;
       border-bottom: 1px solid #f1f5f9;
+      transition: opacity 0.12s ease, background-color 0.12s ease;
     }
-    .task-row:last-child { border-bottom: none; }
+    .task-row:last-of-type { border-bottom: none; }
     .task-row:hover { background: #f8fafc; }
+    .task-row.dragging-source {
+      opacity: 0.32;
+      background: #f1f5f9;
+    }
     .task-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
     .task-topic-input {
       width: 100%;
@@ -232,9 +250,119 @@
       outline: none;
     }
     .task-controls { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+    @media (max-width: 640px) {
+      .task-row { flex-wrap: wrap; }
+      .task-controls { width: 100%; justify-content: flex-end; }
+    }
     .q-input { width: 64px; text-align: center; padding: 4px 6px; font-size: 12px; }
     .type-select { padding: 4px 6px; font-size: 12px; }
-    .empty-day { padding: 10px 12px; font-size: 12px; color: #94a3b8; font-style: italic; }
+    .empty-day {
+      padding: 10px 12px;
+      font-size: 12px;
+      color: #94a3b8;
+      font-style: italic;
+      transition: background-color 0.12s ease, color 0.12s ease;
+    }
+    .day-card.drop-target .empty-day {
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-style: normal;
+      font-weight: 600;
+    }
+
+    /* Sürükle & Bırak Tutamaç, Hayalet Kart ve Bırakma Çizgisi */
+    .drag-handle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 26px;
+      border-radius: 5px;
+      color: #94a3b8;
+      font-size: 14px;
+      line-height: 1;
+      letter-spacing: -1px;
+      cursor: grab;
+      user-select: none;
+      touch-action: none;
+      flex-shrink: 0;
+      transition: background-color 0.12s ease, color 0.12s ease;
+    }
+    .drag-handle:hover {
+      background: #eff6ff;
+      color: var(--primary);
+    }
+    .drag-handle:active {
+      cursor: grabbing;
+    }
+    .unit-subbar .drag-handle {
+      width: 20px;
+      height: 22px;
+      font-size: 13px;
+    }
+    body.is-dragging, body.is-dragging * {
+      cursor: grabbing !important;
+      user-select: none !important;
+    }
+    .drag-ghost {
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 120;
+      pointer-events: none;
+      width: 310px;
+      max-width: calc(100vw - 24px);
+      background: #ffffff;
+      border: 1.5px solid var(--primary);
+      border-radius: 9px;
+      padding: 8px 11px;
+      box-shadow: 0 18px 36px rgba(15, 23, 42, 0.22), 0 4px 12px rgba(37, 99, 235, 0.16);
+      opacity: 0.96;
+      transform: translate3d(-9999px, -9999px, 0);
+      will-change: transform;
+    }
+    .drag-ghost-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      margin-bottom: 3px;
+    }
+    .drag-ghost-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .drag-insert-line {
+      position: relative;
+      height: 3px;
+      margin: -1.5px 10px;
+      background: var(--primary);
+      border-radius: 999px;
+      pointer-events: none;
+      z-index: 6;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
+    }
+    .drag-insert-line::before {
+      content: "";
+      position: absolute;
+      left: -4px;
+      top: 50%;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--primary);
+      transform: translateY(-50%);
+    }
+    .week-tab-btn.drop-target {
+      background: #dbeafe !important;
+      border-color: var(--primary) !important;
+      color: var(--primary-hover) !important;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+    }
 
     /* Sağ Panel: Müfredat */
     .right-panel {
@@ -939,8 +1067,8 @@
           const rawLbl = (state.week_labels[i] || "").trim();
           const isDef = !rawLbl || rawLbl === `${i + 1}. Hafta`;
           const tabTitle = isDef ? `${i + 1}. Hafta` : `${i + 1}. Hafta · ${escapeHtml(rawLbl)}`;
-          const cls = i === state.active_week_idx ? "btn btn-primary btn-sm" : "btn btn-outline btn-sm";
-          html += `<button class="${cls}" onclick="selectWeek(${i})">${tabTitle} (${cnt})</button>`;
+          const cls = i === state.active_week_idx ? "btn btn-primary btn-sm week-tab-btn" : "btn btn-outline btn-sm week-tab-btn";
+          html += `<button class="${cls}" data-week-idx="${i}" onclick="selectWeek(${i})">${tabTitle} (${cnt})</button>`;
         }
         html += "</div><div style='display:flex; gap:6px; flex-wrap:wrap'>";
         if (isMonthly) {
@@ -1011,9 +1139,10 @@
             .join(" · ");
 
           const topicsHtml = entry.topics.length === 0
-            ? `<div class="empty-day">Bu hafta için konu eklenmedi. Sağdan konu eklediğinizde otomatik buraya yerleşir.</div>`
-            : `<div class="task-list">${entry.topics.map((topicText, ti) => `
-                <div class="task-row">
+            ? `<div class="empty-day">Bu hafta için konu eklenmedi. Sağdan '+ Ekle' veya sürükle-bırak ile eklediğinizde otomatik yerleşir.</div>`
+            : `<div class="task-list" data-matrix-list="${escapeHtml(subj)}">${entry.topics.map((topicText, ti) => `
+                <div class="task-row" data-drag-idx="${ti}">
+                  <span class="drag-handle" data-drag-kind="matrix" data-subj="${escapeHtml(subj)}" data-idx="${ti}" title="Sürükleyerek sırayı değiştirin">⠿</span>
                   <div class="task-main">
                     <input class="task-topic-input" value="${escapeHtml(topicText)}"
                       onchange="updateMatrixTopic('${subj}', ${ti}, this.value)" />
@@ -1027,7 +1156,7 @@
               `).join("")}</div>`;
 
           return `
-            <div class="card day-card ${isActive ? "active" : ""}" style="border-left-color: ${subj.startsWith("AYT") || subj === "TÜRK DİLİ VE EDEBİYATI" ? "#8b5cf6" : "#2563eb"}">
+            <div class="card day-card ${isActive ? "active" : ""}" data-matrix-subj="${escapeHtml(subj)}" style="border-left-color: ${subj.startsWith("AYT") || subj === "TÜRK DİLİ VE EDEBİYATI" ? "#8b5cf6" : "#2563eb"}">
               <div class="day-header" onclick="setActiveMatrixSubject('${subj}')">
                 <div class="day-title">
                   ${isActive ? "📌 " : ""}${subj}
@@ -1069,9 +1198,10 @@
         const dayQ = tasks.reduce((a, t) => a + Number(t.target_questions || 0), 0);
 
         const rowsHtml = tasks.length === 0
-          ? `<div class="empty-day">${isActive ? "Henüz konu eklenmedi. Sağ panelden '+ Ekle'ye tıklayın." : "Boş gün — eklemek için gün başlığına tıklayıp aktif yapın."}</div>`
-          : `<div class="task-list">${tasks.map((t, i) => `
-              <div class="task-row">
+          ? `<div class="empty-day">${isActive ? "Henüz konu eklenmedi. Sağdan '+ Ekle' veya sürükle-bırak ile ekleyin." : "Boş gün — sürükleyip bırakabilir veya tıklayıp aktif yapabilirsiniz."}</div>`
+          : `<div class="task-list" data-day-list="${day}">${tasks.map((t, i) => `
+              <div class="task-row" data-drag-idx="${i}">
+                <span class="drag-handle" data-drag-kind="task" data-day="${day}" data-idx="${i}" title="Sürükleyerek taşıyın veya sıralayın">⠿</span>
                 <div class="task-main">
                   <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap">
                     <span class="badge badge-soft">${escapeHtml(t.ders)}</span>
@@ -1096,7 +1226,7 @@
             `).join("")}</div>`;
 
         return `
-          <div class="card day-card day-${day} ${isActive ? "active" : ""}">
+          <div class="card day-card day-${day} ${isActive ? "active" : ""}" data-day="${day}">
             <div class="day-header" onclick="setActiveDay('${day}')">
               <div class="day-title">
                 ${isActive ? "📌 " : ""}${day}
@@ -1498,7 +1628,14 @@
                 <span style="font-size:11px; color:var(--muted)">${unitTopics.length} konu</span>
               </summary>
               <div class="unit-subbar">
-                <span>${unitTopics.length} alt başlık</span>
+                <span style="display:inline-flex; align-items:center; gap:5px">
+                  <span class="drag-handle"
+                    data-drag-kind="unit"
+                    data-topics="${encodedTopics}"
+                    data-unit="${escapeHtml(uniteName)}"
+                    title="Tüm üniteyi sürükleyip istediğiniz güne bırakın">⠿</span>
+                  <span>${unitTopics.length} alt başlık</span>
+                </span>
                 <button class="btn btn-ghost btn-xs" style="color:var(--primary)"
                   data-topics="${encodedTopics}"
                   data-unit="${escapeHtml(uniteName)}"
@@ -1510,6 +1647,12 @@
                   const encTopic = encodeURIComponent(JSON.stringify(t));
                   return `
                     <div class="topic-row">
+                      <span class="drag-handle"
+                        data-drag-kind="topic"
+                        data-ders="${escapeHtml(t.full_ders)}"
+                        data-konu="${escapeHtml(t.konu)}"
+                        data-puan="${escapeHtml(t.puan_turu || "")}"
+                        title="Sürükleyip istediğiniz güne/sıraya bırakın">⠿</span>
                       <div style="min-width:0; flex:1">
                         <div class="topic-title">${escapeHtml(t.konu)}</div>
                         ${meta ? `<div class="topic-meta">${escapeHtml(meta)}</div>` : ""}
@@ -2085,6 +2228,618 @@
       `);
     });
     document.getElementById("btnExport").addEventListener("click", exportExcel);
+
+    // ------------------------------------------------------------------ //
+    // Sürükle & Bırak Motoru (Delegated Pointer Events + rAF + GPU Ghost)
+    // ------------------------------------------------------------------ //
+    function moveTaskBetweenDays(week, fromDay, fromIdx, toDay, insertIdx) {
+      const srcList = week?.[fromDay];
+      const dstList = week?.[toDay];
+      if (!srcList || !dstList || fromIdx < 0 || fromIdx >= srcList.length) return false;
+      if (fromDay === toDay && (insertIdx === fromIdx || insertIdx === fromIdx + 1)) return false;
+      const [moved] = srcList.splice(fromIdx, 1);
+      let targetIdx = Number.isFinite(insertIdx) ? insertIdx : dstList.length;
+      if (fromDay === toDay && fromIdx < targetIdx) targetIdx -= 1;
+      targetIdx = Math.max(0, Math.min(targetIdx, dstList.length));
+      dstList.splice(targetIdx, 0, moved);
+      return true;
+    }
+
+    function reorderListToIndex(list, fromIdx, insertIdx) {
+      if (!Array.isArray(list) || fromIdx < 0 || fromIdx >= list.length) return false;
+      if (insertIdx === fromIdx || insertIdx === fromIdx + 1) return false;
+      const [moved] = list.splice(fromIdx, 1);
+      const targetIdx = Math.max(0, Math.min(fromIdx < insertIdx ? insertIdx - 1 : insertIdx, list.length));
+      list.splice(targetIdx, 0, moved);
+      return true;
+    }
+
+    function insertTasksAtDay(weekObj, targetDay, insertIdx, taskItems) {
+      const dstList = weekObj?.[targetDay];
+      if (!dstList || !Array.isArray(taskItems) || !taskItems.length) return false;
+      const idx = (typeof insertIdx === "number" && insertIdx >= 0)
+        ? Math.min(insertIdx, dstList.length)
+        : dstList.length;
+      dstList.splice(idx, 0, ...taskItems);
+      return true;
+    }
+
+    const dragGhostEl = document.createElement("div");
+    dragGhostEl.className = "drag-ghost";
+    dragGhostEl.style.display = "none";
+    dragGhostEl.innerHTML = `
+      <div class="drag-ghost-meta">
+        <span id="dragGhostBadge" class="badge badge-soft"></span>
+        <span id="dragGhostTarget" style="font-size:11px; font-weight:700; color:var(--primary)"></span>
+      </div>
+      <div id="dragGhostTitle" class="drag-ghost-title"></div>
+    `;
+    document.body.appendChild(dragGhostEl);
+
+    const dragInsertEl = document.createElement("div");
+    dragInsertEl.className = "drag-insert-line";
+
+    let dragCtx = null;
+    let dragRafId = null;
+
+    function clearDragVisuals() {
+      document.querySelectorAll(".drop-target, .drop-target-blocked, .dragging-source").forEach(el => {
+        el.classList.remove("drop-target", "drop-target-blocked", "dragging-source");
+      });
+      if (dragInsertEl.parentNode) dragInsertEl.remove();
+      dragGhostEl.style.display = "none";
+      dragGhostEl.style.transform = "translate3d(-9999px, -9999px, 0)";
+      document.body.classList.remove("is-dragging");
+    }
+
+    function cleanupDrag() {
+      if (dragRafId) {
+        cancelAnimationFrame(dragRafId);
+        dragRafId = null;
+      }
+      clearDragVisuals();
+      dragCtx = null;
+    }
+
+    window.cancelActiveDrag = () => {
+      if (!dragCtx) return false;
+      const wasActive = dragCtx.active;
+      cleanupDrag();
+      return wasActive;
+    };
+
+    function getMatrixCardBySubject(subj) {
+      if (!subj) return null;
+      const cards = document.querySelectorAll("#daysContainer .day-card[data-matrix-subj]");
+      for (const c of cards) {
+        if (c.dataset.matrixSubj === subj) return c;
+      }
+      return null;
+    }
+
+    function computeRowInsertion(listEl, clientY) {
+      const rows = listEl.querySelectorAll(":scope > .task-row");
+      let insertIdx = rows.length;
+      let beforeEl = null;
+      for (let i = 0; i < rows.length; i++) {
+        const rect = rows[i].getBoundingClientRect();
+        if (clientY < rect.top + rect.height / 2) {
+          insertIdx = i;
+          beforeEl = rows[i];
+          break;
+        }
+      }
+      return { insertIdx, beforeEl };
+    }
+
+    function resolveDragTarget(ctx) {
+      const hit = document.elementFromPoint(ctx.curX, ctx.curY);
+      if (!hit) return null;
+
+      // 1) Hafta Sekmeleri (Kompakt & Aylık Matris modunda)
+      const weekBtn = hit.closest("#weekTabs .week-tab-btn[data-week-idx]");
+      if (weekBtn) {
+        const wi = Number(weekBtn.dataset.weekIdx);
+        if (ctx.kind === "task" && wi !== currentWeekIdx()) {
+          return {
+            key: `weekTab:task:${wi}`,
+            type: "weekTab",
+            weekIdx: wi,
+            el: weekBtn,
+            hint: `→ ${wi + 1}. Hafta · ${ctx.fromDay}`,
+            blocked: false,
+          };
+        }
+        if (ctx.kind === "topic" || ctx.kind === "unit") {
+          if (state.template_mode === "monthly") {
+            const mappedSubj = ctx.kind === "topic"
+              ? mapTopicToMatrixSubject(ctx.ders, null, ctx.puan)
+              : ctx.topics.map(t => mapTopicToMatrixSubject(t.full_ders, null, t.puan_turu || "")).find(Boolean) || null;
+            if (!mappedSubj) {
+              return {
+                key: `weekTab:blocked:${wi}`,
+                type: "blocked",
+                el: weekBtn,
+                hint: "Matriste satırı yok",
+                blocked: true,
+              };
+            }
+            return {
+              key: `weekTab:matrix:${wi}:${mappedSubj}`,
+              type: "weekTab",
+              weekIdx: wi,
+              el: weekBtn,
+              hint: `→ ${wi + 1}. Hafta · ${mappedSubj}`,
+              blocked: false,
+            };
+          }
+          return {
+            key: `weekTab:add:${wi}`,
+            type: "weekTab",
+            weekIdx: wi,
+            el: weekBtn,
+            hint: `→ ${wi + 1}. Hafta · ${state.active_day}`,
+            blocked: false,
+          };
+        }
+        return null;
+      }
+
+      // 2) Aylık Gelişim Matrisi
+      if (state.template_mode === "monthly") {
+        if (ctx.kind === "matrix") {
+          const listEl = hit.closest('.task-list[data-matrix-list]');
+          const cardEl = hit.closest('.day-card[data-matrix-subj]');
+          if (cardEl && cardEl.dataset.matrixSubj === ctx.subj) {
+            if (listEl) {
+              const { insertIdx, beforeEl } = computeRowInsertion(listEl, ctx.curY);
+              const isNoop = insertIdx === ctx.fromIdx || insertIdx === ctx.fromIdx + 1;
+              return {
+                key: `matrixReorder:${ctx.subj}:${insertIdx}:${isNoop}`,
+                type: "matrixReorder",
+                subj: ctx.subj,
+                insertIdx,
+                cardEl,
+                listEl,
+                beforeEl,
+                showLine: !isNoop,
+                hint: isNoop ? "" : "Sırayı değiştir",
+                blocked: false,
+              };
+            }
+            return {
+              key: `matrixReorder:${ctx.subj}:end`,
+              type: "matrixReorder",
+              subj: ctx.subj,
+              insertIdx: state.monthly_matrix[currentWeekIdx()][ctx.subj]?.topics?.length || 0,
+              cardEl,
+              listEl: cardEl.querySelector('.task-list[data-matrix-list]'),
+              beforeEl: null,
+              showLine: true,
+              hint: "Sona taşı",
+              blocked: false,
+            };
+          }
+          if (cardEl) {
+            return {
+              key: `matrixBlocked:${cardEl.dataset.matrixSubj}`,
+              type: "blocked",
+              el: cardEl,
+              hint: "Yalnızca kendi dersi içinde sıralanır",
+              blocked: true,
+            };
+          }
+          return null;
+        }
+
+        if (ctx.kind === "topic" || ctx.kind === "unit") {
+          const inDaysArea = hit.closest("#daysContainer");
+          if (!inDaysArea) return null;
+          const mappedSubj = ctx.kind === "topic"
+            ? mapTopicToMatrixSubject(ctx.ders, null, ctx.puan)
+            : ctx.topics.map(t => mapTopicToMatrixSubject(t.full_ders, null, t.puan_turu || "")).find(Boolean) || null;
+          const hoveredCard = hit.closest(".day-card[data-matrix-subj]");
+          if (!mappedSubj) {
+            return {
+              key: `matrixBlocked:unmapped:${hoveredCard ? hoveredCard.dataset.matrixSubj : "area"}`,
+              type: "blocked",
+              el: hoveredCard,
+              hint: "Matriste satırı yok",
+              blocked: true,
+            };
+          }
+          const targetCard = getMatrixCardBySubject(mappedSubj) || hoveredCard;
+          return {
+            key: `matrixAdd:${mappedSubj}`,
+            type: "matrixAdd",
+            subj: mappedSubj,
+            cardEl: targetCard,
+            hint: `→ ${mappedSubj}`,
+            blocked: false,
+          };
+        }
+        return null;
+      }
+
+      // 3) Tek Haftalık / 4 Haftalık Kompakt Gün Kartları
+      const dayCard = hit.closest(".day-card[data-day]");
+      if (!dayCard) return null;
+      const day = dayCard.dataset.day;
+      const listEl = dayCard.querySelector(`.task-list[data-day-list]`);
+      const onHeader = Boolean(hit.closest(".day-header"));
+
+      if (listEl) {
+        let insertIdx;
+        let beforeEl = null;
+        if (onHeader) {
+          insertIdx = listEl.querySelectorAll(":scope > .task-row").length;
+        } else {
+          ({ insertIdx, beforeEl } = computeRowInsertion(listEl, ctx.curY));
+        }
+        const isNoop = ctx.kind === "task" && ctx.fromDay === day &&
+          (insertIdx === ctx.fromIdx || insertIdx === ctx.fromIdx + 1);
+        return {
+          key: `day:${day}:${insertIdx}:${isNoop}`,
+          type: "day",
+          day,
+          insertIdx,
+          cardEl: dayCard,
+          listEl,
+          beforeEl,
+          showLine: !isNoop,
+          hint: `→ ${day}`,
+          blocked: false,
+        };
+      }
+
+      return {
+        key: `day:${day}:empty`,
+        type: "day",
+        day,
+        insertIdx: 0,
+        cardEl: dayCard,
+        listEl: null,
+        beforeEl: null,
+        showLine: false,
+        hint: `→ ${day}`,
+        blocked: false,
+      };
+    }
+
+    function applyDragPreview(target) {
+      const targetKey = target ? target.key : "";
+      if (targetKey === dragCtx.lastPreviewKey) return;
+      dragCtx.lastPreviewKey = targetKey;
+
+      document.querySelectorAll(".drop-target, .drop-target-blocked").forEach(el => {
+        el.classList.remove("drop-target", "drop-target-blocked");
+      });
+      if (dragInsertEl.parentNode) dragInsertEl.remove();
+
+      const targetBadge = document.getElementById("dragGhostTarget");
+      if (!target) {
+        if (targetBadge) {
+          targetBadge.textContent = dragCtx.defaultHint || "";
+          targetBadge.style.color = "var(--muted)";
+        }
+        return;
+      }
+
+      if (target.blocked) {
+        if (target.el) target.el.classList.add("drop-target-blocked");
+        if (targetBadge) {
+          targetBadge.textContent = target.hint || "";
+          targetBadge.style.color = "var(--danger)";
+        }
+        return;
+      }
+
+      if (target.type === "weekTab") {
+        target.el.classList.add("drop-target");
+      } else if (target.cardEl) {
+        target.cardEl.classList.add("drop-target");
+      }
+
+      if (target.showLine && target.listEl) {
+        if (target.beforeEl && target.beforeEl.parentNode === target.listEl) {
+          target.listEl.insertBefore(dragInsertEl, target.beforeEl);
+        } else {
+          target.listEl.appendChild(dragInsertEl);
+        }
+      }
+
+      if (targetBadge) {
+        targetBadge.textContent = target.hint || "";
+        targetBadge.style.color = "var(--primary)";
+      }
+    }
+
+    function dragFrameLoop() {
+      if (!dragCtx || !dragCtx.active) return;
+
+      const gx = Math.min(window.innerWidth - 320, Math.max(8, dragCtx.curX + 14));
+      const gy = Math.min(window.innerHeight - 64, Math.max(8, dragCtx.curY - 18));
+      dragGhostEl.style.transform = `translate3d(${gx}px, ${gy}px, 0)`;
+
+      // Kenara yaklaşınca akıcı sayfa kaydırma
+      const edgeTop = 90;
+      const edgeBottom = window.innerHeight - 85;
+      if (dragCtx.curY < edgeTop && window.scrollY > 0) {
+        const step = Math.round(((edgeTop - dragCtx.curY) / edgeTop) * 18) + 2;
+        window.scrollBy(0, -step);
+      } else if (dragCtx.curY > edgeBottom) {
+        const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+        if (window.scrollY < maxScroll) {
+          const step = Math.round(((dragCtx.curY - edgeBottom) / 85) * 18) + 2;
+          window.scrollBy(0, step);
+        }
+      }
+
+      const target = resolveDragTarget(dragCtx);
+      dragCtx.target = target;
+      applyDragPreview(target);
+
+      dragRafId = requestAnimationFrame(dragFrameLoop);
+    }
+
+    function startDragSession(ctx) {
+      // Düzenlenmekte olan bir satır inputu varsa önce blur ile state'e kaydet
+      const activeEl = document.activeElement;
+      if (activeEl && activeEl.closest && activeEl.closest("#daysContainer") && typeof activeEl.blur === "function") {
+        activeEl.blur();
+      }
+
+      if (ctx.kind === "task") {
+        const liveTask = currentWeek()[ctx.fromDay]?.[ctx.fromIdx];
+        if (!liveTask) {
+          cleanupDrag();
+          return;
+        }
+        ctx.badgeText = liveTask.ders;
+        ctx.titleText = liveTask.konu;
+        ctx.defaultHint = "Başka güne veya sıraya taşıyın";
+        const card = document.querySelector(`#daysContainer .day-card[data-day="${ctx.fromDay}"]`);
+        ctx.sourceRowEl = card?.querySelector(`.task-row[data-drag-idx="${ctx.fromIdx}"]`) || null;
+      } else if (ctx.kind === "matrix") {
+        const liveTopic = state.monthly_matrix[currentWeekIdx()]?.[ctx.subj]?.topics?.[ctx.fromIdx];
+        if (!liveTopic) {
+          cleanupDrag();
+          return;
+        }
+        ctx.badgeText = ctx.subj;
+        ctx.titleText = liveTopic;
+        ctx.defaultHint = "Sırayı değiştirmek için bırakın";
+        const card = getMatrixCardBySubject(ctx.subj);
+        ctx.sourceRowEl = card?.querySelector(`.task-row[data-drag-idx="${ctx.fromIdx}"]`) || null;
+      } else if (ctx.kind === "topic") {
+        const { target_questions } = getQuickDefaults();
+        ctx.badgeText = ctx.ders;
+        ctx.titleText = ctx.konu;
+        ctx.defaultHint = state.template_mode === "monthly"
+          ? "Matrise bırakın"
+          : (target_questions ? `+${target_questions} soru · Güne bırakın` : "Güne bırakın");
+      } else if (ctx.kind === "unit") {
+        ctx.badgeText = `Ünite · ${ctx.topics.length} konu`;
+        ctx.titleText = ctx.unitName;
+        ctx.defaultHint = state.template_mode === "monthly" ? "Matrise bırakın" : "Güne bırakın";
+      }
+
+      ctx.active = true;
+      document.getElementById("dragGhostBadge").textContent = ctx.badgeText || "";
+      document.getElementById("dragGhostTitle").textContent = ctx.titleText || "";
+      document.getElementById("dragGhostTarget").textContent = ctx.defaultHint || "";
+      dragGhostEl.style.display = "block";
+      document.body.classList.add("is-dragging");
+      if (ctx.sourceRowEl) ctx.sourceRowEl.classList.add("dragging-source");
+
+      dragRafId = requestAnimationFrame(dragFrameLoop);
+    }
+
+    function commitDragDrop(ctx, target) {
+      if (!target || target.blocked) return;
+
+      if (target.type === "day") {
+        if (ctx.kind === "task") {
+          const moved = moveTaskBetweenDays(currentWeek(), ctx.fromDay, ctx.fromIdx, target.day, target.insertIdx);
+          if (!moved) return;
+          renderSchedule();
+          if (ctx.fromDay !== target.day) {
+            notify(`Görev ${ctx.fromDay} → ${target.day} gününe taşındı`);
+          }
+        } else if (ctx.kind === "topic") {
+          const { study_type, target_questions } = getQuickDefaults();
+          insertTasksAtDay(currentWeek(), target.day, target.insertIdx, [{
+            ders: ctx.ders,
+            konu: ctx.konu,
+            study_type,
+            target_questions,
+            note: "",
+          }]);
+          renderSchedule();
+          notify(`'${ctx.konu}' → ${target.day} gününe eklendi`);
+        } else if (ctx.kind === "unit") {
+          const { study_type, target_questions } = getQuickDefaults();
+          const newTasks = ctx.topics.map(t => ({
+            ders: t.full_ders,
+            konu: t.konu,
+            study_type,
+            target_questions,
+            note: "",
+          }));
+          insertTasksAtDay(currentWeek(), target.day, target.insertIdx, newTasks);
+          renderSchedule();
+          notify(`'${ctx.unitName}' (${newTasks.length} konu) → ${target.day}`);
+        }
+        return;
+      }
+
+      if (target.type === "weekTab") {
+        const wi = target.weekIdx;
+        if (ctx.kind === "task") {
+          const srcList = state.weeks[currentWeekIdx()]?.[ctx.fromDay];
+          const dstList = state.weeks[wi]?.[ctx.fromDay];
+          if (!srcList || !dstList || ctx.fromIdx < 0 || ctx.fromIdx >= srcList.length) return;
+          const [moved] = srcList.splice(ctx.fromIdx, 1);
+          dstList.push(moved);
+          renderSchedule();
+          notify(`'${moved.konu}' → ${wi + 1}. Hafta · ${ctx.fromDay} gününe taşındı`);
+        } else if (ctx.kind === "topic") {
+          const { study_type, target_questions } = getQuickDefaults();
+          if (state.template_mode === "monthly") {
+            const subj = mapTopicToMatrixSubject(ctx.ders, null, ctx.puan);
+            if (!subj) return;
+            const entry = state.monthly_matrix[wi][subj];
+            if (!entry.topics.includes(ctx.konu)) entry.topics.push(ctx.konu);
+            if (target_questions) entry.target_questions = (entry.target_questions || 0) + target_questions;
+            renderSchedule();
+            notify(`'${ctx.konu}' → ${wi + 1}. Hafta · ${subj}`);
+          } else {
+            insertTasksAtDay(state.weeks[wi], state.active_day, -1, [{
+              ders: ctx.ders,
+              konu: ctx.konu,
+              study_type,
+              target_questions,
+              note: "",
+            }]);
+            renderSchedule();
+            notify(`'${ctx.konu}' → ${wi + 1}. Hafta · ${state.active_day}`);
+          }
+        } else if (ctx.kind === "unit") {
+          const { study_type, target_questions } = getQuickDefaults();
+          if (state.template_mode === "monthly") {
+            let added = 0;
+            let lastSubj = "";
+            for (const t of ctx.topics) {
+              const subj = mapTopicToMatrixSubject(t.full_ders, null, t.puan_turu || "");
+              if (!subj) continue;
+              const entry = state.monthly_matrix[wi][subj];
+              if (!entry.topics.includes(t.konu)) entry.topics.push(t.konu);
+              if (target_questions) entry.target_questions = (entry.target_questions || 0) + target_questions;
+              lastSubj = subj;
+              added++;
+            }
+            if (added > 0) {
+              renderSchedule();
+              notify(`'${ctx.unitName}' (${added} konu) → ${wi + 1}. Hafta · ${lastSubj}`);
+            }
+          } else {
+            const newTasks = ctx.topics.map(t => ({
+              ders: t.full_ders,
+              konu: t.konu,
+              study_type,
+              target_questions,
+              note: "",
+            }));
+            insertTasksAtDay(state.weeks[wi], state.active_day, -1, newTasks);
+            renderSchedule();
+            notify(`'${ctx.unitName}' (${newTasks.length} konu) → ${wi + 1}. Hafta · ${state.active_day}`);
+          }
+        }
+        return;
+      }
+
+      if (target.type === "matrixReorder" && ctx.kind === "matrix") {
+        const list = state.monthly_matrix[currentWeekIdx()]?.[ctx.subj]?.topics;
+        if (reorderListToIndex(list, ctx.fromIdx, target.insertIdx)) {
+          renderSchedule();
+        }
+        return;
+      }
+
+      if (target.type === "matrixAdd") {
+        if (ctx.kind === "topic") {
+          addTopic(ctx.ders, ctx.konu, ctx.puan);
+        } else if (ctx.kind === "unit") {
+          const { target_questions } = getQuickDefaults();
+          let lastSubj = state.active_matrix_subject;
+          let added = 0;
+          for (const t of ctx.topics) {
+            const subj = mapTopicToMatrixSubject(t.full_ders, state.active_matrix_subject, t.puan_turu || "");
+            if (!subj) continue;
+            const entry = state.monthly_matrix[currentWeekIdx()][subj];
+            if (!entry.topics.includes(t.konu)) entry.topics.push(t.konu);
+            if (target_questions) entry.target_questions = (entry.target_questions || 0) + target_questions;
+            lastSubj = subj;
+            added++;
+          }
+          if (added > 0) {
+            state.active_matrix_subject = lastSubj;
+            renderSchedule();
+            notify(`'${ctx.unitName}' (${added} konu) → ${lastSubj}`);
+          }
+        }
+      }
+    }
+
+    document.addEventListener("pointerdown", (e) => {
+      if (e.button && e.button !== 0) return;
+      const handle = e.target.closest(".drag-handle");
+      if (!handle) return;
+
+      const kind = handle.dataset.dragKind;
+      if (!kind) return;
+      e.preventDefault();
+
+      const base = {
+        kind,
+        pointerId: e.pointerId,
+        startX: e.clientX,
+        startY: e.clientY,
+        curX: e.clientX,
+        curY: e.clientY,
+        active: false,
+        lastPreviewKey: null,
+        target: null,
+      };
+
+      if (kind === "task") {
+        base.fromDay = handle.dataset.day;
+        base.fromIdx = Number(handle.dataset.idx);
+      } else if (kind === "matrix") {
+        base.subj = handle.dataset.subj;
+        base.fromIdx = Number(handle.dataset.idx);
+      } else if (kind === "topic") {
+        base.ders = handle.dataset.ders;
+        base.konu = handle.dataset.konu;
+        base.puan = handle.dataset.puan || "";
+      } else if (kind === "unit") {
+        base.unitName = handle.dataset.unit;
+        base.topics = JSON.parse(decodeURIComponent(handle.dataset.topics));
+      }
+
+      dragCtx = base;
+    });
+
+    document.addEventListener("pointermove", (e) => {
+      if (!dragCtx || e.pointerId !== dragCtx.pointerId) return;
+      dragCtx.curX = e.clientX;
+      dragCtx.curY = e.clientY;
+
+      if (!dragCtx.active) {
+        if (Math.hypot(e.clientX - dragCtx.startX, e.clientY - dragCtx.startY) < 5) return;
+        startDragSession(dragCtx);
+      }
+    }, { passive: true });
+
+    document.addEventListener("pointerup", (e) => {
+      if (!dragCtx || e.pointerId !== dragCtx.pointerId) return;
+      const ctx = dragCtx;
+      const finalTarget = ctx.active ? (resolveDragTarget(ctx) || ctx.target) : null;
+      const wasActive = ctx.active;
+      cleanupDrag();
+      if (wasActive && finalTarget) {
+        commitDragDrop(ctx, finalTarget);
+      }
+    });
+
+    document.addEventListener("pointercancel", (e) => {
+      if (!dragCtx || e.pointerId !== dragCtx.pointerId) return;
+      cleanupDrag();
+    });
+
+    window.addEventListener("blur", () => {
+      if (dragCtx) cleanupDrag();
+    });
 
     renderSchedule();
     refreshSubjectsDropdown().then(refreshCurriculum);
